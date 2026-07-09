@@ -1,5 +1,6 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { CropRect, WordMeaning } from "../types";
+import { mapCropRectToImage } from "../utils/cropMapping";
 
 type OcrSpaceResponse = {
   IsErroredOnProcessing: boolean;
@@ -280,17 +281,16 @@ export async function runRealOcrAndTranslate(params: {
   imageSize: { width: number; height: number };
 }): Promise<{ sourceText: string; translatedText: string; croppedImageUri: string }> {
   const { imageUri, cropRect, previewSize, imageSize } = params;
-  const scaleX = imageSize.width / previewSize.width;
-  const scaleY = imageSize.height / previewSize.height;
+  const imageCrop = mapCropRectToImage({ cropRect, previewSize, imageSize });
   const cropped = await manipulateAsync(
     imageUri,
     [
       {
         crop: {
-          originX: Math.max(Math.round(cropRect.x * scaleX), 0),
-          originY: Math.max(Math.round(cropRect.y * scaleY), 0),
-          width: Math.max(Math.round(cropRect.width * scaleX), 50),
-          height: Math.max(Math.round(cropRect.height * scaleY), 50)
+          originX: imageCrop.x,
+          originY: imageCrop.y,
+          width: imageCrop.width,
+          height: imageCrop.height
         }
       }
     ],

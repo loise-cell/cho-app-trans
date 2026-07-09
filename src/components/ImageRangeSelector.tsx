@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Image, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { CropRect } from "../types";
+import { getImageDisplayLayout, clampCropToDisplay } from "../utils/cropMapping";
 
 type Props = {
   imageUri: string;
+  imageSize: { width: number; height: number };
   locked: boolean;
   onLock: (cropRect: CropRect, previewSize: { width: number; height: number }) => void;
   onUnlock: () => void;
@@ -18,7 +20,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export function ImageRangeSelector({ imageUri, locked, onLock, onUnlock, onInteractionChange }: Props) {
+export function ImageRangeSelector({ imageUri, imageSize, locked, onLock, onUnlock, onInteractionChange }: Props) {
   const [containerSize, setContainerSize] = useState({ width: 320, height: 280 });
   const [cropRect, setCropRect] = useState<CropRect>({ x: 16, y: 16, width: 260, height: 160 });
 
@@ -55,12 +57,16 @@ export function ImageRangeSelector({ imageUri, locked, onLock, onUnlock, onInter
 
     if (didInitForImage.current !== imageUri) {
       didInitForImage.current = imageUri;
-      const next: CropRect = {
-        x: width * 0.1,
-        y: height * 0.12,
-        width: width * 0.8,
-        height: height * 0.56
-      };
+      const layout = getImageDisplayLayout({ width, height }, imageSize);
+      const next = clampCropToDisplay(
+        {
+          x: layout.offsetX + layout.displayWidth * 0.08,
+          y: layout.offsetY + layout.displayHeight * 0.12,
+          width: layout.displayWidth * 0.84,
+          height: layout.displayHeight * 0.5
+        },
+        layout
+      );
       syncCrop(next);
     }
   };
@@ -75,14 +81,20 @@ export function ImageRangeSelector({ imageUri, locked, onLock, onUnlock, onInter
     })
     .onUpdate((event) => {
       const { width, height } = containerRef.current;
+      const layout = getImageDisplayLayout({ width, height }, imageSize);
       const current = cropRef.current;
-      const maxX = Math.max(width - current.width, 0);
-      const maxY = Math.max(height - current.height, 0);
-      syncCrop({
-        ...current,
-        x: clamp(dragOrigin.current.x + event.translationX, 0, maxX),
-        y: clamp(dragOrigin.current.y + event.translationY, 0, maxY)
-      });
+      const maxX = Math.max(layout.offsetX + layout.displayWidth - current.width, layout.offsetX);
+      const maxY = Math.max(layout.offsetY + layout.displayHeight - current.height, layout.offsetY);
+      syncCrop(
+        clampCropToDisplay(
+          {
+            ...current,
+            x: clamp(dragOrigin.current.x + event.translationX, layout.offsetX, maxX),
+            y: clamp(dragOrigin.current.y + event.translationY, layout.offsetY, maxY)
+          },
+          layout
+        )
+      );
     })
     .onFinalize(() => {
       setInteracting(false);
@@ -101,14 +113,20 @@ export function ImageRangeSelector({ imageUri, locked, onLock, onUnlock, onInter
     })
     .onUpdate((event) => {
       const { width, height } = containerRef.current;
+      const layout = getImageDisplayLayout({ width, height }, imageSize);
       const current = cropRef.current;
-      const maxWidth = Math.max(width - current.x, MIN_SIZE);
-      const maxHeight = Math.max(height - current.y, MIN_SIZE);
-      syncCrop({
-        ...current,
-        width: clamp(resizeOrigin.current.width + event.translationX, MIN_SIZE, maxWidth),
-        height: clamp(resizeOrigin.current.height + event.translationY, MIN_SIZE, maxHeight)
-      });
+      const maxWidth = Math.max(layout.offsetX + layout.displayWidth - current.x, MIN_SIZE);
+      const maxHeight = Math.max(layout.offsetY + layout.displayHeight - current.y, MIN_SIZE);
+      syncCrop(
+        clampCropToDisplay(
+          {
+            ...current,
+            width: clamp(resizeOrigin.current.width + event.translationX, MIN_SIZE, maxWidth),
+            height: clamp(resizeOrigin.current.height + event.translationY, MIN_SIZE, maxHeight)
+          },
+          layout
+        )
+      );
     })
     .onFinalize(() => {
       setInteracting(false);
@@ -120,10 +138,10 @@ export function ImageRangeSelector({ imageUri, locked, onLock, onUnlock, onInter
   return (
     <View>
       <Text style={styles.title}>
-        {locked ? "範圍已固定（只翻譯藍框內）" : "調整翻譯範圍（拖上方移動、拉右下角縮放）"}
+        {locked ? "範圍已固定（只翻譯框內）" : "調整翻譯範圍（拖上方移動、拉右下角縮放）"}
       </Text>
       <View style={styles.preview} onLayout={onLayout}>
-        <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />
+        <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
 
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           <View style={[dimStyle, { top: 0, left: 0, width: cw, height: cropRect.y }]} />

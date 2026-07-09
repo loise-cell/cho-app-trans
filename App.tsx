@@ -265,6 +265,7 @@ function AppContent() {
           <>
             <ImageRangeSelector
               imageUri={imageUri}
+              imageSize={imageSize}
               locked={cropLocked}
               onInteractionChange={(isInteracting) => {
                 setScrollEnabled(!isInteracting);
