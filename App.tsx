@@ -7,6 +7,8 @@ import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { AdGateCard } from "./src/components/AdGateCard";
 import { ImageRangeSelector } from "./src/components/ImageRangeSelector";
+import { TranslationCompareCard } from "./src/components/TranslationCompareCard";
+import { WordCloud } from "./src/components/WordCloud";
 import { WordSheet } from "./src/components/WordSheet";
 import { lookupWordMeaning, runRealOcrAndTranslate } from "./src/services/mockTranslator";
 import { canTranslate, initialPointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
@@ -41,6 +43,7 @@ function AppContent() {
   const [showAllWords, setShowAllWords] = useState(false);
   const [cropLocked, setCropLocked] = useState(false);
   const [wordLoading, setWordLoading] = useState(false);
+  const [croppedImageUri, setCroppedImageUri] = useState<string | null>(null);
 
   const allWords = useMemo(
     () =>
@@ -51,7 +54,7 @@ function AppContent() {
     [sourceText]
   );
 
-  const focusWords = useMemo(() => {
+  const orderedFocusWords = useMemo(() => {
     const stopwords = new Set([
       "the",
       "a",
@@ -105,14 +108,11 @@ function AppContent() {
       }
       seen.add(normalized);
       result.push(word);
-      if (result.length >= 12) {
-        break;
-      }
     }
     return result;
   }, [allWords]);
 
-  const words = showAllWords ? allWords.slice(0, 80) : focusWords;
+  const words = showAllWords ? allWords : orderedFocusWords;
 
   const pickFromLibrary = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -126,6 +126,7 @@ function AppContent() {
       setImageSize({ width: selected.width, height: selected.height });
       setSourceText("");
       setTranslatedText("");
+      setCroppedImageUri(null);
       setCropLocked(false);
       setActiveTab("editor");
     }
@@ -147,6 +148,7 @@ function AppContent() {
       setImageSize({ width: selected.width, height: selected.height });
       setSourceText("");
       setTranslatedText("");
+      setCroppedImageUri(null);
       setCropLocked(false);
       setActiveTab("editor");
     }
@@ -177,6 +179,7 @@ function AppContent() {
       });
       setSourceText(data.sourceText);
       setTranslatedText(data.translatedText);
+      setCroppedImageUri(data.croppedImageUri);
       setActiveTab("result");
       setHistory((prev) => [
         {
@@ -297,32 +300,30 @@ function AppContent() {
 
         {activeTab === "result" && translatedText ? (
           <View style={styles.resultBlock}>
+            {croppedImageUri ? (
+              <TranslationCompareCard
+                imageUri={croppedImageUri}
+                sourceText={sourceText}
+                translatedText={translatedText}
+              />
+            ) : null}
+
             <View style={styles.resultCard}>
-              <Text style={styles.blockTitle}>重點單字（可點查看解釋）</Text>
+              <Text style={styles.blockTitle}>單字（由前到後，字越大越重要，可點查看）</Text>
               {allWords.length > 0 ? (
                 <Pressable style={styles.toggleWordsButton} onPress={() => setShowAllWords((prev) => !prev)}>
                   <Text style={styles.toggleWordsText}>
-                    {showAllWords ? `收合回重點單字（${focusWords.length}）` : `展開全部單字（${allWords.length}）`}
+                    {showAllWords
+                      ? `收合重點單字（${orderedFocusWords.length}）`
+                      : `展開全部單字（${allWords.length}）`}
                   </Text>
                 </Pressable>
               ) : null}
-              <View style={styles.wordList}>
-                {words.length === 0 ? (
-                  <Text style={styles.placeholder}>尚無辨識結果</Text>
-                ) : (
-                  words.map((word, index) => (
-                    <Pressable key={`${word}-${index}`} onPress={() => openWordMeaning(word)} style={styles.wordRow}>
-                      <Text style={styles.wordIndex}>{index + 1}.</Text>
-                      <Text style={styles.wordRowText}>{word}</Text>
-                    </Pressable>
-                  ))
-                )}
-              </View>
-            </View>
-
-            <View style={styles.resultCard}>
-              <Text style={styles.blockTitle}>中文翻譯</Text>
-              <Text style={styles.resultText}>{translatedText || "尚無翻譯結果"}</Text>
+              {words.length === 0 ? (
+                <Text style={styles.placeholder}>尚無辨識結果</Text>
+              ) : (
+                <WordCloud words={words} onPressWord={openWordMeaning} />
+              )}
             </View>
 
             <View style={styles.resultCard}>

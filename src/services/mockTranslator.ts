@@ -112,7 +112,8 @@ const POS_ZH: Record<string, string> = {
   interjection: "感嘆詞",
   article: "冠詞",
   determiner: "限定詞",
-  exclamation: "感嘆詞"
+  exclamation: "感嘆詞",
+  "proper noun": "專有名詞"
 };
 
 function toPosZh(partOfSpeech: string): string {
@@ -133,7 +134,71 @@ function formatWordZh(partOfSpeech: string, wordZh: string): string {
 function pickExampleFromContext(word: string, context: string): string | null {
   const pattern = new RegExp(`[^.!?]*\\b${word}\\b[^.!?]*[.!?]?`, "i");
   const match = context.match(pattern);
-  return match?.[0]?.trim() || null;
+  const sentence = match?.[0]?.trim() || null;
+  if (!sentence) {
+    return null;
+  }
+  if (sentence.length <= 140) {
+    return sentence;
+  }
+  return `${sentence.slice(0, 137)}...`;
+}
+
+const PROPER_NOUN_ZH: Record<string, string> = {
+  trump: "川普（特朗普）",
+  iran: "伊朗",
+  china: "中國",
+  taiwan: "台灣",
+  japan: "日本",
+  korea: "韓國",
+  israel: "以色列",
+  ukraine: "烏克蘭",
+  russia: "俄羅斯",
+  biden: "拜登",
+  obama: "歐巴馬",
+  democrats: "民主黨",
+  republican: "共和黨",
+  republicans: "共和黨",
+  congress: "美國國會",
+  pentagon: "五角大廈",
+  tehran: "德黑蘭",
+  london: "倫敦",
+  paris: "巴黎",
+  washington: "華盛頓",
+  california: "加州",
+  texas: "德州",
+  bbc: "BBC",
+  reuters: "路透社"
+};
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function toLookupForm(word: string, context: string): string {
+  const raw = word.trim();
+  if (/^[A-Z]/.test(raw)) {
+    return raw;
+  }
+  const capitalized = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  const pattern = new RegExp(`\\b${escapeRegExp(capitalized)}\\b`);
+  if (pattern.test(context)) {
+    return capitalized;
+  }
+  return raw;
+}
+
+function isLikelyProperNoun(word: string, context: string): boolean {
+  const raw = word.trim();
+  const lower = raw.toLowerCase();
+  if (PROPER_NOUN_ZH[lower]) {
+    return true;
+  }
+  if (/^[A-Z][a-z]+$/.test(raw) || /^[A-Z]{2,}$/.test(raw)) {
+    return true;
+  }
+  const lookupForm = toLookupForm(raw, context);
+  return lookupForm !== raw.toLowerCase() && /^[A-Z]/.test(lookupForm);
 }
 
 function pickBestDefinition(entry: DictionaryApiEntry, word: string, context: string) {
@@ -213,7 +278,7 @@ export async function runRealOcrAndTranslate(params: {
   cropRect: CropRect;
   previewSize: { width: number; height: number };
   imageSize: { width: number; height: number };
-}): Promise<{ sourceText: string; translatedText: string }> {
+}): Promise<{ sourceText: string; translatedText: string; croppedImageUri: string }> {
   const { imageUri, cropRect, previewSize, imageSize } = params;
   const scaleX = imageSize.width / previewSize.width;
   const scaleY = imageSize.height / previewSize.height;
@@ -244,25 +309,42 @@ export async function runRealOcrAndTranslate(params: {
   const translatedText = await translateToZhTw(sourceText);
   return {
     sourceText,
-    translatedText
+    translatedText,
+    croppedImageUri: cropped.uri
   };
 }
 
 export const lookupWordMeaning = async (word: string, context = ""): Promise<WordMeaning> => {
-  const normalized = word.trim().toLowerCase().replace(/[^a-z]/g, "");
+  const lookupForm = toLookupForm(word, context);
+  const normalized = lookupForm.toLowerCase().replace(/[^a-z]/g, "");
   if (!normalized) {
     throw new Error("請點選英文單字。");
   }
 
-  const cacheKey = normalized;
+  const cacheKey = `${normalized}:${isLikelyProperNoun(word, context) ? "pn" : "wd"}`;
   const cached = wordCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
+  if (isLikelyProperNoun(word, context)) {
+    const mappedZh = PROPER_NOUN_ZH[normalized];
+    const wordZh = mappedZh || (await translateChunkToZhTw(lookupForm));
+    const exampleEnglish = pickExampleFromContext(lookupForm, context) || "No example available.";
+    const result: WordMeaning = {
+      word: lookupForm,
+      phonetic: "/N/A/",
+      partOfSpeech: "proper noun",
+      definitionZhTw: `（專有名詞）${wordZh}`,
+      example: exampleEnglish
+    };
+    wordCache.set(cacheKey, result);
+    return result;
+  }
+
   let phonetic = "/N/A/";
   let partOfSpeech = "unknown";
-  let exampleEnglish = pickExampleFromContext(normalized, context) || "No example available.";
+  let exampleEnglish = pickExampleFromContext(lookupForm, context) || "No example available.";
 
   try {
     const response = await fetch(
@@ -275,7 +357,7 @@ export const lookupWordMeaning = async (word: string, context = ""): Promise<Wor
       phonetic = entry?.phonetic || entry?.phonetics?.find((item) => item.text)?.text || "/N/A/";
       partOfSpeech = picked.partOfSpeech;
       if (picked.example) {
-        exampleEnglish = picked.example;
+        exampleEnglish = picked.example.length <= 140 ? picked.example : `${picked.example.slice(0, 137)}...`;
       }
     }
   } catch {
@@ -286,7 +368,7 @@ export const lookupWordMeaning = async (word: string, context = ""): Promise<Wor
   const definitionZhTw = formatWordZh(partOfSpeech, wordZh);
 
   const result: WordMeaning = {
-    word: normalized,
+    word: lookupForm,
     phonetic,
     partOfSpeech,
     definitionZhTw,
