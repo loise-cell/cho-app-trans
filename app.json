@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Cho App Trans",
+    "slug": "cho-app-trans",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.choapptrans.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "用於拍照並翻譯畫面中的文字。",
+        "NSPhotoLibraryUsageDescription": "用於選取照片進行文字翻譯。"
+      }
+    },
+    "android": {
+      "package": "com.choapptrans.mobile",
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "extra": {
+      "translationCostPoints": 2,
+      "rewardPerAd": 2
+    }
+  }
+}
