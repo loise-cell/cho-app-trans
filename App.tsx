@@ -1,12 +1,13 @@
 import "react-native-gesture-handler";
-import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Animated, Easing, Platform, Pressable, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { AdGateCard, LastAdReward } from "./src/components/AdGateCard";
 import { AppHeader } from "./src/components/AppHeader";
+import { AppSplash } from "./src/components/AppSplash";
 import { ImageRangeSelector } from "./src/components/ImageRangeSelector";
 import { LanguageOnboarding } from "./src/components/LanguageOnboarding";
 import { LanguageSettingsCard } from "./src/components/LanguageSettingsCard";
@@ -71,6 +72,9 @@ function AppContent() {
   const [croppedImageUri, setCroppedImageUri] = useState<string | null>(null);
   const [lastAdReward, setLastAdReward] = useState<LastAdReward | null>(null);
   const [badgesState, setBadgesState] = useState<BadgesState>(defaultBadgesState);
+  const [introComplete, setIntroComplete] = useState(false);
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const contentTranslateY = useRef(new Animated.Value(18)).current;
 
   const ui = langSettings.uiLanguage;
   const hasSuperLuckyBadge = hasBadge(badgesState, SUPER_LUCKY_TRANSLATOR_BADGE);
@@ -89,6 +93,28 @@ function AppContent() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!introComplete) {
+      return;
+    }
+    contentOpacity.setValue(0);
+    contentTranslateY.setValue(18);
+    Animated.parallel([
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }),
+      Animated.timing(contentTranslateY, {
+        toValue: 0,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      })
+    ]).start();
+  }, [contentOpacity, contentTranslateY, introComplete]);
 
   const persistSettings = async (next: LanguageSettings) => {
     setLangSettings(next);
@@ -293,12 +319,14 @@ function AppContent() {
 
   const bottomPad = Math.max(insets.bottom, Platform.OS === "android" ? 24 : 12) + 48;
 
-  if (!settingsReady) {
+  if (!introComplete) {
     return (
       <GestureHandlerRootView style={styles.root}>
-        <SafeAreaView style={[styles.safeArea, styles.loadingScreen]}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </SafeAreaView>
+        <AppSplash
+          uiLanguage={langSettings.uiLanguage}
+          ready={settingsReady}
+          onFinish={() => setIntroComplete(true)}
+        />
       </GestureHandlerRootView>
     );
   }
@@ -307,11 +335,13 @@ function AppContent() {
     return (
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
-          <LanguageOnboarding
-            onComplete={async (uiLanguage) => {
-              await persistSettings(settingsAfterUiPick(uiLanguage));
-            }}
-          />
+          <Animated.View style={{ flex: 1, opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] }}>
+            <LanguageOnboarding
+              onComplete={async (uiLanguage) => {
+                await persistSettings(settingsAfterUiPick(uiLanguage));
+              }}
+            />
+          </Animated.View>
         </SafeAreaView>
       </GestureHandlerRootView>
     );
@@ -327,6 +357,7 @@ function AppContent() {
     <GestureHandlerRootView style={styles.root}>
       <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
         <StatusBar style="dark" />
+        <Animated.View style={{ flex: 1, opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] }}>
         <ScrollView
           contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
           scrollEnabled={scrollEnabled}
@@ -548,6 +579,7 @@ function AppContent() {
             </View>
           ) : null}
         </ScrollView>
+        </Animated.View>
 
         <WordSheet
           visible={wordSheetVisible}
@@ -582,10 +614,6 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.bg
-  },
-  loadingScreen: {
-    alignItems: "center",
-    justifyContent: "center"
   },
   container: {
     padding: spacing.lg,

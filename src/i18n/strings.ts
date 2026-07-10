@@ -3,6 +3,7 @@ import { UiLanguageCode } from "./languages";
 export type StringKey =
   | "appTitle"
   | "appSubtitle"
+  | "splashTagline"
   | "tabEditor"
   | "tabResult"
   | "takePhoto"
@@ -92,6 +93,7 @@ type Dictionary = Record<StringKey, string>;
 const zhTW: Dictionary = {
   appTitle: "ChoAppTrans",
   appSubtitle: "拍照翻譯 + 可調整範圍 + 單字解釋 + 廣告點數機制",
+  splashTagline: "拍照翻譯，一拍即譯",
   tabEditor: "拍照編輯",
   tabResult: "翻譯結果",
   takePhoto: "拍照",
@@ -180,6 +182,7 @@ const zhTW: Dictionary = {
 const zhCN: Dictionary = {
   ...zhTW,
   appSubtitle: "拍照翻译 + 可调整范围 + 单词解释 + 广告点数机制",
+  splashTagline: "拍照翻译，一拍即译",
   tabEditor: "拍照编辑",
   tabResult: "翻译结果",
   takePhoto: "拍照",
@@ -268,6 +271,7 @@ const zhCN: Dictionary = {
 const en: Dictionary = {
   appTitle: "ChoAppTrans",
   appSubtitle: "Photo translate + adjustable crop + word lookup + ad points",
+  splashTagline: "Snap. Translate. Go.",
   tabEditor: "Edit",
   tabResult: "Result",
   takePhoto: "Camera",
