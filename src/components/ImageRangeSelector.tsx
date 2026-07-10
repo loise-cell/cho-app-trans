@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Image, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { CropRect } from "../types";
+import { cardBase, colors, radius, spacing } from "../theme";
 import { getImageDisplayLayout, clampCropToDisplay } from "../utils/cropMapping";
 
 type Props = {
@@ -152,7 +153,7 @@ export function ImageRangeSelector({
   const dimStyle = styles.dim;
 
   return (
-    <View>
+    <View style={[styles.wrap, cardBase]}>
       <Text style={styles.title}>{locked ? labels.rangeLocked : labels.rangeAdjust}</Text>
       <View style={styles.preview} onLayout={onLayout}>
         <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
@@ -240,17 +241,24 @@ export function ImageRangeSelector({
 }
 
 const styles = StyleSheet.create({
+  wrap: {
+    padding: spacing.lg,
+    gap: spacing.sm
+  },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "700",
-    marginBottom: 8
+    color: colors.textSecondary,
+    marginBottom: spacing.xs
   },
   preview: {
     width: "100%",
     height: 280,
-    borderRadius: 14,
+    borderRadius: radius.md,
     overflow: "hidden",
-    backgroundColor: "#E5E7EB"
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border
   },
   image: {
     width: "100%",
@@ -258,29 +266,29 @@ const styles = StyleSheet.create({
   },
   dim: {
     position: "absolute",
-    backgroundColor: "rgba(17, 24, 39, 0.55)"
+    backgroundColor: colors.overlay
   },
   cropRect: {
     position: "absolute",
     borderWidth: 2,
-    borderColor: "#2563EB",
-    backgroundColor: "rgba(37, 99, 235, 0.08)",
-    borderRadius: 10
+    borderColor: colors.primary,
+    backgroundColor: "rgba(79, 70, 229, 0.1)",
+    borderRadius: 12
   },
   cropRectLocked: {
-    borderColor: "#16A34A",
-    backgroundColor: "rgba(22, 163, 74, 0.08)"
+    borderColor: colors.success,
+    backgroundColor: "rgba(5, 150, 105, 0.1)"
   },
   dragBar: {
     height: 36,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(219, 234, 254, 0.95)",
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8
+    backgroundColor: "rgba(238, 242, 255, 0.95)",
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10
   },
   dragHint: {
-    color: "#1E3A8A",
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -291,7 +299,7 @@ const styles = StyleSheet.create({
     width: HANDLE_SIZE,
     height: HANDLE_SIZE,
     borderRadius: HANDLE_SIZE / 2,
-    backgroundColor: "#1D4ED8",
+    backgroundColor: colors.primary,
     borderWidth: 3,
     borderColor: "#FFFFFF",
     justifyContent: "center",
@@ -303,7 +311,7 @@ const styles = StyleSheet.create({
     height: 14,
     borderRightWidth: 2,
     borderBottomWidth: 2,
-    borderColor: "#DBEAFE"
+    borderColor: colors.primarySoft
   },
   lockedBadge: {
     flex: 1,
@@ -311,18 +319,19 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   lockedText: {
-    color: "#166534",
+    color: colors.success,
     fontWeight: "700",
-    backgroundColor: "rgba(220, 252, 231, 0.95)",
-    paddingHorizontal: 10,
+    backgroundColor: colors.successSoft,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 999
+    borderRadius: radius.pill,
+    overflow: "hidden"
   },
   button: {
-    marginTop: 10,
-    backgroundColor: "#111827",
-    borderRadius: 10,
-    paddingVertical: 10,
+    marginTop: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 12,
     alignItems: "center"
   },
   buttonText: {
@@ -330,15 +339,16 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   unlockButton: {
-    marginTop: 10,
+    marginTop: spacing.sm,
     borderWidth: 1,
-    borderColor: "#9CA3AF",
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center"
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    alignItems: "center",
+    backgroundColor: colors.surfaceMuted
   },
   unlockButtonText: {
-    color: "#374151",
+    color: colors.textSecondary,
     fontWeight: "700"
   }
 });

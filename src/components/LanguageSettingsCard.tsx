@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   SOURCE_LANGUAGES,
   SourceLanguageCode,
@@ -9,6 +10,7 @@ import {
   labelForUiLanguage
 } from "../i18n/languages";
 import { t } from "../i18n/strings";
+import { cardBase, colors, radius, spacing } from "../theme";
 
 type Props = {
   uiLanguage: UiLanguageCode;
@@ -40,15 +42,22 @@ export function LanguageSettingsCard({
   const uiLabel = labelForUiLanguage(uiLanguage);
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>{t(uiLanguage, "languageSettings")}</Text>
-      <Text style={styles.hint}>
-        {t(uiLanguage, "langPairHint", { source: sourceLabel, target: targetLabel })}
-      </Text>
+    <View style={[styles.card, cardBase]}>
+      <View style={styles.titleRow}>
+        <Ionicons name="globe-outline" size={18} color={colors.primary} />
+        <Text style={styles.title}>{t(uiLanguage, "languageSettings")}</Text>
+      </View>
+      <View style={styles.pairPill}>
+        <Text style={styles.pairText}>
+          {sourceLabel} → {targetLabel}
+        </Text>
+      </View>
 
       <Row
+        icon="phone-portrait-outline"
         label={t(uiLanguage, "uiLanguage")}
         value={uiLabel}
+        open={open === "ui"}
         onPress={() => setOpen(open === "ui" ? null : "ui")}
       />
       {open === "ui" ? (
@@ -63,8 +72,10 @@ export function LanguageSettingsCard({
       ) : null}
 
       <Row
+        icon="text-outline"
         label={t(uiLanguage, "sourceLanguage")}
         value={sourceLabel}
+        open={open === "source"}
         onPress={() => setOpen(open === "source" ? null : "source")}
       />
       {open === "source" ? (
@@ -82,8 +93,10 @@ export function LanguageSettingsCard({
       ) : null}
 
       <Row
+        icon="flag-outline"
         label={t(uiLanguage, "targetLanguage")}
         value={targetLabel}
+        open={open === "target"}
         onPress={() => setOpen(open === "target" ? null : "target")}
       />
       {open === "target" ? (
@@ -100,11 +113,31 @@ export function LanguageSettingsCard({
   );
 }
 
-function Row({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
+function Row({
+  icon,
+  label,
+  value,
+  open,
+  onPress
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  open: boolean;
+  onPress: () => void;
+}) {
   return (
-    <Pressable style={styles.row} onPress={onPress}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value} ▾</Text>
+    <Pressable style={[styles.row, open && styles.rowOpen]} onPress={onPress}>
+      <View style={styles.rowLeft}>
+        <Ionicons name={icon} size={16} color={colors.primary} />
+        <Text style={styles.rowLabel}>{label}</Text>
+      </View>
+      <View style={styles.rowRight}>
+        <Text style={styles.rowValue} numberOfLines={1}>
+          {value}
+        </Text>
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={16} color={colors.textMuted} />
+      </View>
     </Pressable>
   );
 }
@@ -127,6 +160,7 @@ function OptionList({
           onPress={() => onSelect(opt.code)}
         >
           <Text style={[styles.optionText, selected === opt.code && styles.optionTextActive]}>{opt.label}</Text>
+          {selected === opt.code ? <Ionicons name="checkmark-circle" size={18} color={colors.primary} /> : null}
         </Pressable>
       ))}
     </ScrollView>
@@ -135,62 +169,96 @@ function OptionList({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "#E5E7EB"
+    padding: spacing.lg,
+    gap: spacing.sm
+  },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.xs
   },
   title: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#111827"
+    fontSize: 16,
+    fontWeight: "800",
+    color: colors.text
   },
-  hint: {
+  pairPill: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    marginBottom: spacing.sm
+  },
+  pairText: {
     fontSize: 12,
-    color: "#6B7280",
-    marginBottom: 4
+    fontWeight: "700",
+    color: colors.primaryDark
   },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#F9FAFB",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: colors.borderLight
+  },
+  rowOpen: {
+    borderColor: colors.primaryBorder,
+    backgroundColor: colors.primarySoft
+  },
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flex: 1
+  },
+  rowRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: "50%"
   },
   rowLabel: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#374151"
+    color: colors.textSecondary
   },
   rowValue: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1D4ED8"
+    color: colors.primary,
+    flexShrink: 1
   },
   options: {
     maxHeight: 160,
-    borderRadius: 10,
-    backgroundColor: "#F3F4F6"
+    borderRadius: radius.md,
+    backgroundColor: colors.surfaceMuted,
+    marginBottom: spacing.xs
   },
   option: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+    paddingVertical: 11,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E5E7EB"
+    borderBottomColor: colors.border
   },
   optionActive: {
-    backgroundColor: "#DBEAFE"
+    backgroundColor: colors.primarySoft
   },
   optionText: {
     fontSize: 14,
-    color: "#111827"
+    color: colors.text,
+    flex: 1
   },
   optionTextActive: {
     fontWeight: "700",
-    color: "#1E40AF"
+    color: colors.primaryDark
   }
 });

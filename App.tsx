@@ -6,6 +6,7 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { AdGateCard } from "./src/components/AdGateCard";
+import { AppHeader } from "./src/components/AppHeader";
 import { ImageRangeSelector } from "./src/components/ImageRangeSelector";
 import { LanguageOnboarding } from "./src/components/LanguageOnboarding";
 import { LanguageSettingsCard } from "./src/components/LanguageSettingsCard";
@@ -25,6 +26,8 @@ import {
 import { canTranslate, constants, initialPointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
 import { CropRect, TranslationRecord, WordMeaning } from "./src/types";
 import { extractChatEntities, isExcludedWord } from "./src/utils/chatEntities";
+import { cardBase, colors, radius, spacing } from "./src/theme";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 const initialCropRect: CropRect = { x: 20, y: 20, width: 220, height: 120 };
 const initialPreviewSize = { width: 320, height: 240 };
@@ -262,7 +265,7 @@ function AppContent() {
     return (
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaView style={[styles.safeArea, styles.loadingScreen]}>
-          <ActivityIndicator size="large" color="#2563EB" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </SafeAreaView>
       </GestureHandlerRootView>
     );
@@ -295,28 +298,37 @@ function AppContent() {
         <ScrollView
           contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
           scrollEnabled={scrollEnabled}
-          showsVerticalScrollIndicator
+          showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
         >
-          <Text style={styles.title}>{t(ui, "appTitle")}</Text>
-          <Text style={styles.subtitle}>{t(ui, "appSubtitle")}</Text>
+          <AppHeader title={t(ui, "appTitle")} subtitle={t(ui, "appSubtitle")} points={pointsState.points} />
 
           <View style={styles.tabWrap}>
-            <Pressable onPress={() => setActiveTab("editor")} style={[styles.tab, activeTab === "editor" && styles.tabActive]}>
+            <Pressable
+              onPress={() => setActiveTab("editor")}
+              style={[styles.tab, activeTab === "editor" && styles.tabActive]}
+            >
+              <Ionicons name="crop-outline" size={16} color={activeTab === "editor" ? "#FFFFFF" : colors.primary} />
               <Text style={[styles.tabText, activeTab === "editor" && styles.tabTextActive]}>{t(ui, "tabEditor")}</Text>
             </Pressable>
-            <Pressable onPress={() => setActiveTab("result")} style={[styles.tab, activeTab === "result" && styles.tabActive]}>
+            <Pressable
+              onPress={() => setActiveTab("result")}
+              style={[styles.tab, activeTab === "result" && styles.tabActive]}
+            >
+              <Ionicons name="reader-outline" size={16} color={activeTab === "result" ? "#FFFFFF" : colors.primary} />
               <Text style={[styles.tabText, activeTab === "result" && styles.tabTextActive]}>{t(ui, "tabResult")}</Text>
             </Pressable>
           </View>
 
           <View style={styles.row}>
-            <Pressable style={styles.secondaryButton} onPress={captureFromCamera}>
-              <Text style={styles.secondaryText}>{t(ui, "takePhoto")}</Text>
+            <Pressable style={({ pressed }) => [styles.actionButton, styles.actionPrimary, pressed && styles.pressed]} onPress={captureFromCamera}>
+              <Ionicons name="camera" size={22} color="#FFFFFF" />
+              <Text style={styles.actionPrimaryText}>{t(ui, "takePhoto")}</Text>
             </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={pickFromLibrary}>
-              <Text style={styles.secondaryText}>{t(ui, "pickImage")}</Text>
+            <Pressable style={({ pressed }) => [styles.actionButton, styles.actionSecondary, pressed && styles.pressed]} onPress={pickFromLibrary}>
+              <Ionicons name="images-outline" size={22} color={colors.primary} />
+              <Text style={styles.actionSecondaryText}>{t(ui, "pickImage")}</Text>
             </Pressable>
           </View>
 
@@ -342,12 +354,15 @@ function AppContent() {
           ) : null}
 
           {activeTab === "editor" && !imageUri ? (
-            <View style={styles.welcomeCard}>
+            <View style={[styles.welcomeCard, cardBase]}>
               <Text style={styles.welcomeTitle}>{t(ui, "welcomeTitle")}</Text>
-              <Text style={styles.welcomeStep}>{t(ui, "welcomeStep1")}</Text>
-              <Text style={styles.welcomeStep}>{t(ui, "welcomeStep2")}</Text>
-              <Text style={styles.welcomeStep}>{t(ui, "welcomeStep3")}</Text>
-              <Text style={styles.welcomeHint}>{t(ui, "welcomeHint")}</Text>
+              <StepRow n={1} text={t(ui, "welcomeStep1")} />
+              <StepRow n={2} text={t(ui, "welcomeStep2")} />
+              <StepRow n={3} text={t(ui, "welcomeStep3")} />
+              <View style={styles.hintBox}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+                <Text style={styles.welcomeHint}>{t(ui, "welcomeHint")}</Text>
+              </View>
             </View>
           ) : null}
 
@@ -361,12 +376,15 @@ function AppContent() {
 
           {activeTab === "editor" && imageUri ? (
             <>
-              <Text style={styles.langPair}>
-                {t(ui, "langPairHint", {
-                  source: sourceLabel,
-                  target: labelForUiLanguage(langSettings.targetLanguage)
-                })}
-              </Text>
+              <View style={styles.langPairPill}>
+                <Ionicons name="swap-horizontal" size={14} color={colors.primary} />
+                <Text style={styles.langPair}>
+                  {t(ui, "langPairHint", {
+                    source: sourceLabel,
+                    target: labelForUiLanguage(langSettings.targetLanguage)
+                  })}
+                </Text>
+              </View>
 
               <ImageRangeSelector
                 imageUri={imageUri}
@@ -392,11 +410,14 @@ function AppContent() {
               />
 
               {cropLocked ? (
-                <Pressable style={styles.translateButton} onPress={translate} disabled={loading}>
+                <Pressable
+                  style={({ pressed }) => [styles.translateButton, pressed && styles.pressed, loading && styles.translateDisabled]}
+                  onPress={translate}
+                  disabled={loading}
+                >
+                  <Ionicons name="language" size={20} color="#FFFFFF" />
                   <Text style={styles.translateText}>
-                    {loading
-                      ? t(ui, "translating")
-                      : t(ui, "startTranslate", { cost: constants.TRANSLATION_COST })}
+                    {loading ? t(ui, "translating") : t(ui, "startTranslate", { cost: constants.TRANSLATION_COST })}
                   </Text>
                 </Pressable>
               ) : null}
@@ -410,7 +431,10 @@ function AppContent() {
           ) : null}
 
           {activeTab === "result" && !translatedText ? (
-            <View style={styles.welcomeCard}>
+            <View style={[styles.welcomeCard, cardBase]}>
+              <View style={styles.emptyIcon}>
+                <Ionicons name="document-text-outline" size={32} color={colors.textMuted} />
+              </View>
               <Text style={styles.welcomeTitle}>{t(ui, "noResultTitle")}</Text>
               <Text style={styles.welcomeStep}>{t(ui, "noResultBody")}</Text>
             </View>
@@ -439,8 +463,11 @@ function AppContent() {
                 />
               ) : null}
 
-              <View style={styles.resultCard}>
-                <Text style={styles.blockTitle}>{t(ui, "wordsTitle")}</Text>
+              <View style={[styles.resultCard, cardBase]}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="text-outline" size={18} color={colors.primary} />
+                  <Text style={styles.blockTitle}>{t(ui, "wordsTitle")}</Text>
+                </View>
                 {allWords.length > 0 ? (
                   <Pressable style={styles.toggleWordsButton} onPress={() => setShowAllWords((prev) => !prev)}>
                     <Text style={styles.toggleWordsText}>
@@ -457,15 +484,21 @@ function AppContent() {
                 )}
               </View>
 
-              <View style={styles.resultCard}>
-                <Text style={styles.blockTitle}>{t(ui, "recentHistory")}</Text>
+              <View style={[styles.resultCard, cardBase]}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="time-outline" size={18} color={colors.primary} />
+                  <Text style={styles.blockTitle}>{t(ui, "recentHistory")}</Text>
+                </View>
                 {history.length === 0 ? (
                   <Text style={styles.placeholder}>{t(ui, "noHistory")}</Text>
                 ) : (
                   history.slice(0, 3).map((item) => (
-                    <Text key={item.id} style={styles.historyText}>
-                      {new Date(item.createdAt).toLocaleString()} - {item.translatedText}
-                    </Text>
+                    <View key={item.id} style={styles.historyItem}>
+                      <Text style={styles.historyDate}>{new Date(item.createdAt).toLocaleString()}</Text>
+                      <Text style={styles.historyText} numberOfLines={2}>
+                        {item.translatedText}
+                      </Text>
+                    </View>
                   ))
                 )}
               </View>
@@ -488,136 +521,237 @@ function AppContent() {
   );
 }
 
+function StepRow({ n, text }: { n: number; text: string }) {
+  return (
+    <View style={styles.stepRow}>
+      <View style={styles.stepBadge}>
+        <Text style={styles.stepNum}>{n}</Text>
+      </View>
+      <Text style={styles.welcomeStep}>{text}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: {
     flex: 1
   },
   safeArea: {
     flex: 1,
-    backgroundColor: "#F3F4F6"
+    backgroundColor: colors.bg
   },
   loadingScreen: {
     alignItems: "center",
     justifyContent: "center"
   },
   container: {
-    padding: 16,
-    paddingTop: Platform.OS === "android" ? (NativeStatusBar.currentHeight || 0) + 10 : 16,
-    gap: 12
+    padding: spacing.lg,
+    paddingTop: Platform.OS === "android" ? (NativeStatusBar.currentHeight || 0) + 10 : spacing.lg,
+    gap: spacing.md
   },
   welcomeCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 16,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "#E5E7EB"
+    padding: spacing.lg,
+    gap: spacing.md
+  },
+  emptyIcon: {
+    alignSelf: "center",
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceMuted,
+    alignItems: "center",
+    justifyContent: "center"
   },
   welcomeTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#111827"
+    color: colors.text
+  },
+  stepRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md
+  },
+  stepBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1
+  },
+  stepNum: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.primary
   },
   welcomeStep: {
+    flex: 1,
     fontSize: 14,
-    color: "#374151",
+    color: colors.textSecondary,
     lineHeight: 22
   },
+  hintBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    backgroundColor: colors.primarySoft,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.xs
+  },
   welcomeHint: {
-    marginTop: 4,
+    flex: 1,
     fontSize: 12,
-    color: "#6B7280"
+    color: colors.primaryDark,
+    lineHeight: 18
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "800"
-  },
-  subtitle: {
-    color: "#4B5563"
+  langPairPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    alignSelf: "flex-start",
+    backgroundColor: colors.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: radius.pill
   },
   langPair: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
-    color: "#1E40AF"
+    color: colors.primaryDark
   },
   tabWrap: {
     flexDirection: "row",
-    backgroundColor: "#EEF2FF",
-    borderRadius: 12,
-    padding: 4
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.borderLight
   },
   tab: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
-    borderRadius: 10,
-    paddingVertical: 10
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: radius.sm,
+    paddingVertical: 11
   },
   tabActive: {
-    backgroundColor: "#1D4ED8"
+    backgroundColor: colors.primary
   },
   tabText: {
-    color: "#1E3A8A",
-    fontWeight: "700"
+    color: colors.primary,
+    fontWeight: "700",
+    fontSize: 13
   },
   tabTextActive: {
     color: "#FFFFFF"
   },
   row: {
     flexDirection: "row",
-    gap: 10
+    gap: spacing.sm
   },
-  secondaryButton: {
+  actionButton: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: "center"
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    borderRadius: radius.md,
+    paddingVertical: 14
   },
-  secondaryText: {
-    color: "#111827",
-    fontWeight: "700"
+  actionPrimary: {
+    backgroundColor: colors.primary
+  },
+  actionSecondary: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.primaryBorder
+  },
+  actionPrimaryText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14
+  },
+  actionSecondaryText: {
+    color: colors.primary,
+    fontWeight: "700",
+    fontSize: 14
+  },
+  pressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }]
   },
   translateButton: {
-    backgroundColor: "#2563EB",
-    borderRadius: 12,
-    paddingVertical: 14,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 16,
     marginBottom: 4
+  },
+  translateDisabled: {
+    opacity: 0.7
   },
   translateText: {
     color: "#FFFFFF",
-    fontWeight: "700"
-  },
-  resultCard: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 12,
-    gap: 8
-  },
-  resultBlock: {
-    gap: 12
-  },
-  blockTitle: {
     fontWeight: "700",
     fontSize: 15
   },
+  resultCard: {
+    padding: spacing.lg,
+    gap: spacing.sm
+  },
+  resultBlock: {
+    gap: spacing.md
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.xs
+  },
+  blockTitle: {
+    fontWeight: "800",
+    fontSize: 15,
+    color: colors.text,
+    flex: 1
+  },
   toggleWordsButton: {
-    backgroundColor: "#DBEAFE",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7
+    alignSelf: "flex-start",
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 8
   },
   toggleWordsText: {
-    color: "#1E40AF",
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: "700"
   },
   placeholder: {
-    color: "#6B7280"
+    color: colors.textMuted,
+    fontSize: 14
+  },
+  historyItem: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    gap: 4
+  },
+  historyDate: {
+    fontSize: 11,
+    color: colors.textMuted,
+    fontWeight: "600"
   },
   historyText: {
-    fontSize: 12,
-    color: "#374151"
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20
   }
 });

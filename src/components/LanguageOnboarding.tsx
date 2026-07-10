@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { UI_LANGUAGES, UiLanguageCode } from "../i18n/languages";
 import { t } from "../i18n/strings";
+import { colors, radius, spacing } from "../theme";
 
 type Props = {
   onComplete: (uiLanguage: UiLanguageCode) => void;
@@ -12,9 +14,15 @@ export function LanguageOnboarding({ onComplete }: Props) {
 
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>{t(selected, "onboardingTitle")}</Text>
-      <Text style={styles.subtitle}>{t(selected, "onboardingSubtitle")}</Text>
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+      <View style={styles.hero}>
+        <View style={styles.heroIcon}>
+          <Ionicons name="earth" size={36} color={colors.primary} />
+        </View>
+        <Text style={styles.title}>{t(selected, "onboardingTitle")}</Text>
+        <Text style={styles.subtitle}>{t(selected, "onboardingSubtitle")}</Text>
+      </View>
+
+      <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
         {UI_LANGUAGES.map((lang) => {
           const active = selected === lang.code;
           return (
@@ -23,14 +31,19 @@ export function LanguageOnboarding({ onComplete }: Props) {
               style={[styles.option, active && styles.optionActive]}
               onPress={() => setSelected(lang.code)}
             >
-              <Text style={[styles.optionNative, active && styles.optionTextActive]}>{lang.nativeLabel}</Text>
-              <Text style={[styles.optionEn, active && styles.optionTextActive]}>{lang.englishLabel}</Text>
+              <View style={styles.optionTextWrap}>
+                <Text style={[styles.optionNative, active && styles.optionTextActive]}>{lang.nativeLabel}</Text>
+                <Text style={[styles.optionEn, active && styles.optionSubActive]}>{lang.englishLabel}</Text>
+              </View>
+              {active ? <Ionicons name="checkmark-circle" size={22} color="#FFFFFF" /> : null}
             </Pressable>
           );
         })}
       </ScrollView>
-      <Pressable style={styles.button} onPress={() => onComplete(selected)}>
+
+      <Pressable style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]} onPress={() => onComplete(selected)}>
         <Text style={styles.buttonText}>{t(selected, "onboardingContinue")}</Text>
+        <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
       </Pressable>
     </View>
   );
@@ -39,59 +52,89 @@ export function LanguageOnboarding({ onComplete }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
-    padding: 20,
-    paddingTop: 48,
-    gap: 12
+    backgroundColor: colors.bg,
+    padding: spacing.xl,
+    paddingTop: 56,
+    gap: spacing.lg
+  },
+  hero: {
+    alignItems: "center",
+    gap: spacing.sm
+  },
+  heroIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.sm
   },
   title: {
     fontSize: 26,
     fontWeight: "800",
-    color: "#111827"
+    color: colors.text,
+    textAlign: "center"
   },
   subtitle: {
     fontSize: 14,
-    color: "#4B5563",
-    lineHeight: 22
+    color: colors.textSecondary,
+    lineHeight: 22,
+    textAlign: "center",
+    paddingHorizontal: spacing.md
   },
   list: {
     flex: 1
   },
   listContent: {
-    gap: 8,
-    paddingBottom: 16
+    gap: spacing.sm,
+    paddingBottom: spacing.lg
   },
   option: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
     borderWidth: 1,
-    borderColor: "#E5E7EB"
+    borderColor: colors.border
   },
   optionActive: {
-    backgroundColor: "#1D4ED8",
-    borderColor: "#1D4ED8"
+    backgroundColor: colors.primary,
+    borderColor: colors.primary
+  },
+  optionTextWrap: {
+    flex: 1
   },
   optionNative: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#111827"
+    color: colors.text
   },
   optionEn: {
     fontSize: 12,
-    color: "#6B7280",
+    color: colors.textMuted,
     marginTop: 2
   },
   optionTextActive: {
     color: "#FFFFFF"
   },
+  optionSubActive: {
+    color: "rgba(255,255,255,0.75)"
+  },
   button: {
-    backgroundColor: "#2563EB",
-    borderRadius: 12,
-    paddingVertical: 14,
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 16,
+    marginBottom: spacing.md
+  },
+  buttonPressed: {
+    opacity: 0.92
   },
   buttonText: {
     color: "#FFFFFF",
