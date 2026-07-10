@@ -11,6 +11,14 @@ type Props = {
   onLock: (cropRect: CropRect, previewSize: { width: number; height: number }) => void;
   onUnlock: () => void;
   onInteractionChange?: (isInteracting: boolean) => void;
+  labels: {
+    rangeLocked: string;
+    rangeAdjust: string;
+    dragHint: string;
+    translationArea: string;
+    readjustRange: string;
+    confirmRange: string;
+  };
 };
 
 const MIN_SIZE = 72;
@@ -20,7 +28,15 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-export function ImageRangeSelector({ imageUri, imageSize, locked, onLock, onUnlock, onInteractionChange }: Props) {
+export function ImageRangeSelector({
+  imageUri,
+  imageSize,
+  locked,
+  onLock,
+  onUnlock,
+  onInteractionChange,
+  labels
+}: Props) {
   const [containerSize, setContainerSize] = useState({ width: 320, height: 280 });
   const [cropRect, setCropRect] = useState<CropRect>({ x: 16, y: 16, width: 260, height: 160 });
 
@@ -137,9 +153,7 @@ export function ImageRangeSelector({ imageUri, imageSize, locked, onLock, onUnlo
 
   return (
     <View>
-      <Text style={styles.title}>
-        {locked ? "範圍已固定（只翻譯框內）" : "調整翻譯範圍（拖上方移動、拉右下角縮放）"}
-      </Text>
+      <Text style={styles.title}>{locked ? labels.rangeLocked : labels.rangeAdjust}</Text>
       <View style={styles.preview} onLayout={onLayout}>
         <Image source={{ uri: imageUri }} style={styles.image} resizeMode="contain" />
 
@@ -192,7 +206,7 @@ export function ImageRangeSelector({ imageUri, imageSize, locked, onLock, onUnlo
             <>
               <GestureDetector gesture={moveGesture}>
                 <View style={styles.dragBar}>
-                  <Text style={styles.dragHint}>拖曳移動</Text>
+                  <Text style={styles.dragHint}>{labels.dragHint}</Text>
                 </View>
               </GestureDetector>
               <GestureDetector gesture={resizeGesture}>
@@ -203,7 +217,7 @@ export function ImageRangeSelector({ imageUri, imageSize, locked, onLock, onUnlo
             </>
           ) : (
             <View style={styles.lockedBadge}>
-              <Text style={styles.lockedText}>翻譯區域</Text>
+              <Text style={styles.lockedText}>{labels.translationArea}</Text>
             </View>
           )}
         </View>
@@ -211,14 +225,14 @@ export function ImageRangeSelector({ imageUri, imageSize, locked, onLock, onUnlo
 
       {locked ? (
         <Pressable style={styles.unlockButton} onPress={onUnlock}>
-          <Text style={styles.unlockButtonText}>重新調整範圍</Text>
+          <Text style={styles.unlockButtonText}>{labels.readjustRange}</Text>
         </Pressable>
       ) : (
         <Pressable
           style={styles.button}
           onPress={() => onLock(cropRef.current, containerRef.current)}
         >
-          <Text style={styles.buttonText}>確定範圍</Text>
+          <Text style={styles.buttonText}>{labels.confirmRange}</Text>
         </Pressable>
       )}
     </View>

@@ -1,5 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { UiLanguageCode } from "../i18n/languages";
+import { t } from "../i18n/strings";
 import { WordMeaning } from "../types";
 
 type Props = {
@@ -7,33 +9,34 @@ type Props = {
   loading?: boolean;
   meaning: WordMeaning | null;
   onClose: () => void;
+  uiLanguage: UiLanguageCode;
 };
 
-export function WordSheet({ visible, loading = false, meaning, onClose }: Props) {
+export function WordSheet({ visible, loading = false, meaning, onClose, uiLanguage }: Props) {
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={styles.sheet}>
-          <Text style={styles.title}>單字解釋</Text>
+          <Text style={styles.title}>{t(uiLanguage, "wordSheetTitle")}</Text>
           {loading ? (
             <View style={styles.loadingWrap}>
               <ActivityIndicator size="large" color="#2563EB" />
-              <Text style={styles.loadingText}>查詢中...</Text>
+              <Text style={styles.loadingText}>{t(uiLanguage, "lookingUp")}</Text>
             </View>
           ) : meaning ? (
             <>
               <Text style={styles.word}>{meaning.word}</Text>
               <Text style={styles.text}>{meaning.phonetic}</Text>
-              <Text style={styles.text}>詞性：{meaning.partOfSpeech}</Text>
-              <Text style={styles.text}>中文譯義：{meaning.definitionZhTw}</Text>
-              <Text style={styles.text}>例句（英文）：{meaning.example}</Text>
+              <Text style={styles.text}>{t(uiLanguage, "partOfSpeech", { pos: meaning.partOfSpeech })}</Text>
+              <Text style={styles.text}>{t(uiLanguage, "meaning", { text: meaning.definitionZhTw })}</Text>
+              <Text style={styles.text}>{t(uiLanguage, "example", { text: meaning.example })}</Text>
             </>
           ) : (
-            <Text style={styles.text}>請先點選一個單字。</Text>
+            <Text style={styles.text}>{t(uiLanguage, "pickWordFirst")}</Text>
           )}
           <Pressable style={styles.button} onPress={onClose}>
-            <Text style={styles.buttonText}>關閉</Text>
+            <Text style={styles.buttonText}>{t(uiLanguage, "close")}</Text>
           </Pressable>
         </View>
       </View>

@@ -1,6 +1,14 @@
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { CropRect, WordMeaning } from "../types";
+import {
+  SOURCE_TO_MYMEMORY,
+  SOURCE_TO_OCR,
+  SourceLanguageCode,
+  TARGET_TO_MYMEMORY,
+  TargetLanguageCode
+} from "../i18n/languages";
 import { mapCropRectToImage } from "../utils/cropMapping";
+import { unwrapSoftLineBreaks } from "../utils/textUnwrap";
 
 type OcrSpaceResponse = {
   IsErroredOnProcessing: boolean;
@@ -28,12 +36,9 @@ const OCR_API_KEY = process.env.EXPO_PUBLIC_OCR_SPACE_API_KEY ?? "helloworld";
 const TRANSLATE_MAX_CHARS = 450;
 const wordCache = new Map<string, WordMeaning>();
 
+/** Clean OCR: keep chat lines; unwrap article column breaks into paragraphs. */
 function normalizeOcrText(text: string): string {
-  return text
-    .replace(/\r/g, " ")
-    .replace(/\n+/g, " ")
-    .replace(/\s{2,}/g, " ")
-    .trim();
+  return unwrapSoftLineBreaks(text);
 }
 
 function splitTextForTranslate(text: string, chunkSize: number): string[] {
@@ -49,7 +54,7 @@ function splitTextForTranslate(text: string, chunkSize: number): string[] {
       break;
     }
     const part = remaining.slice(0, chunkSize);
-    const breakAt = Math.max(part.lastIndexOf("."), part.lastIndexOf(","), part.lastIndexOf(" "));
+    const breakAt = Math.max(part.lastIndexOf("."), part.lastIndexOf(","), part.lastIndexOf(" "), part.lastIndexOf("\n"));
     const index = breakAt > 50 ? breakAt : chunkSize;
     const chunk = remaining.slice(0, index).trim();
     chunks.push(chunk);
@@ -59,18 +64,68 @@ function splitTextForTranslate(text: string, chunkSize: number): string[] {
 }
 
 function splitSentences(text: string): string[] {
-  const parts = text.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+  const parts = text.match(/[^.!?。！？]+[.!?。！？]+|[^.!?。！？]+$/g);
   if (!parts) {
-    return [text.trim()];
+    return [text.trim()].filter(Boolean);
   }
   return parts.map((part) => part.trim()).filter(Boolean);
 }
 
-async function translateChunkToZhTw(text: string): Promise<string> {
-  const url = `${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=en|zh-TW`;
+function looksLikeChatParagraph(text: string): boolean {
+  const lines = text.split(/\n+/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length < 2) {
+    return false;
+  }
+  let hits = 0;
+  for (const line of lines) {
+    if (/^.{1,48}\s*[:：]\s*.+/.test(line) || /^[A-Za-z0-9_.\-]{2,32}\s*[「"']/.test(line)) {
+      hits += 1;
+    }
+  }
+  return hits >= 2;
+}
+
+function isMostlyTargetScript(text: string, target: TargetLanguageCode): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return true;
+  }
+  if (target === "zh-TW" || target === "zh-CN" || target === "ja") {
+    const cjk = (trimmed.match(/[\u3040-\u30ff\u3400-\u9fff]/g) || []).length;
+    const letters = (trimmed.match(/[A-Za-z]/g) || []).length;
+    return cjk > 0 && cjk >= letters;
+  }
+  if (target === "ko") {
+    const hangul = (trimmed.match(/[\uac00-\ud7af]/g) || []).length;
+    const letters = (trimmed.match(/[A-Za-z]/g) || []).length;
+    return hangul > 0 && hangul >= letters;
+  }
+  if (target === "th") {
+    const thai = (trimmed.match(/[\u0e00-\u0e7f]/g) || []).length;
+    return thai > trimmed.length * 0.4;
+  }
+  return false;
+}
+
+async function translateChunk(
+  text: string,
+  source: SourceLanguageCode,
+  target: TargetLanguageCode
+): Promise<string> {
+  if (isMostlyTargetScript(text, target)) {
+    return text;
+  }
+
+  const from = SOURCE_TO_MYMEMORY[source] ?? "en";
+  const to = TARGET_TO_MYMEMORY[target] ?? "en";
+  if (from === to && source !== "auto") {
+    return text;
+  }
+
+  const url = `${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`${from}|${to}`)}`;
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error("翻譯服務暫時無法使用，請稍後再試。");
+    throw new Error("Translation service unavailable.");
   }
   const data = (await response.json()) as {
     responseData?: { translatedText?: string };
@@ -78,62 +133,106 @@ async function translateChunkToZhTw(text: string): Promise<string> {
   return data.responseData?.translatedText?.trim() || text;
 }
 
-async function translateToZhTw(text: string): Promise<string> {
-  if (!text.trim()) {
-    return "";
+async function translateParagraph(
+  paragraph: string,
+  source: SourceLanguageCode,
+  target: TargetLanguageCode
+): Promise<string> {
+  // Only keep line-by-line when it looks like chat; article soft-breaks are already unwrapped
+  if (looksLikeChatParagraph(paragraph)) {
+    const lines = paragraph
+      .split(/\n+/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const out: string[] = [];
+    for (const line of lines) {
+      if (line.length <= TRANSLATE_MAX_CHARS) {
+        out.push(await translateChunk(line, source, target));
+      } else {
+        const chunks = splitTextForTranslate(line, TRANSLATE_MAX_CHARS);
+        const chunkResults: string[] = [];
+        for (const chunk of chunks) {
+          chunkResults.push(await translateChunk(chunk, source, target));
+        }
+        out.push(chunkResults.join(" "));
+      }
+    }
+    return out.join("\n");
   }
 
-  const sentences = splitSentences(text);
+  const sentences = splitSentences(paragraph.replace(/\n+/g, " "));
   const translated: string[] = [];
-
   for (const sentence of sentences) {
     if (sentence.length <= TRANSLATE_MAX_CHARS) {
-      translated.push(await translateChunkToZhTw(sentence));
+      translated.push(await translateChunk(sentence, source, target));
       continue;
     }
     const chunks = splitTextForTranslate(sentence, TRANSLATE_MAX_CHARS);
     const chunkResults: string[] = [];
     for (const chunk of chunks) {
-      chunkResults.push(await translateChunkToZhTw(chunk));
+      chunkResults.push(await translateChunk(chunk, source, target));
     }
     translated.push(chunkResults.join(" "));
   }
-
   return translated.join(" ");
 }
 
-const POS_ZH: Record<string, string> = {
-  noun: "名詞",
-  verb: "動詞",
-  adjective: "形容詞",
-  adverb: "副詞",
-  preposition: "介系詞",
-  pronoun: "代名詞",
-  conjunction: "連接詞",
-  interjection: "感嘆詞",
-  article: "冠詞",
-  determiner: "限定詞",
-  exclamation: "感嘆詞",
-  "proper noun": "專有名詞"
-};
+export async function translateText(
+  text: string,
+  source: SourceLanguageCode,
+  target: TargetLanguageCode
+): Promise<string> {
+  if (!text.trim()) {
+    return "";
+  }
 
-function toPosZh(partOfSpeech: string): string {
-  return POS_ZH[partOfSpeech.toLowerCase()] || partOfSpeech;
+  if (looksLikeChatParagraph(text)) {
+    return translateParagraph(text, source, target);
+  }
+
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  const translatedParagraphs: string[] = [];
+  for (const paragraph of paragraphs.length ? paragraphs : [text.trim()]) {
+    translatedParagraphs.push(await translateParagraph(paragraph, source, target));
+  }
+  return translatedParagraphs.join("\n\n");
 }
 
-function formatWordZh(partOfSpeech: string, wordZh: string): string {
+const POS_LABEL: Record<string, string> = {
+  noun: "noun",
+  verb: "verb",
+  adjective: "adjective",
+  adverb: "adverb",
+  preposition: "preposition",
+  pronoun: "pronoun",
+  conjunction: "conjunction",
+  interjection: "interjection",
+  article: "article",
+  determiner: "determiner",
+  exclamation: "exclamation",
+  "proper noun": "proper noun"
+};
+
+function formatWordMeaning(partOfSpeech: string, wordZh: string, properNounLabel: string, noDefLabel: string): string {
   const cleaned = wordZh.trim();
   if (!cleaned) {
-    return "查無譯義";
+    return noDefLabel;
+  }
+  if (partOfSpeech === "proper noun") {
+    return `（${properNounLabel}）${cleaned}`;
   }
   if (partOfSpeech && partOfSpeech !== "unknown") {
-    return `（${toPosZh(partOfSpeech)}）${cleaned}`;
+    return `（${POS_LABEL[partOfSpeech.toLowerCase()] || partOfSpeech}）${cleaned}`;
   }
   return cleaned;
 }
 
 function pickExampleFromContext(word: string, context: string): string | null {
-  const pattern = new RegExp(`[^.!?]*\\b${word}\\b[^.!?]*[.!?]?`, "i");
+  const pattern = new RegExp(`[^.!?\\n]*\\b${word}\\b[^.!?\\n]*[.!?]?`, "i");
   const match = context.match(pattern);
   const sentence = match?.[0]?.trim() || null;
   if (!sentence) {
@@ -242,12 +341,17 @@ function pickBestDefinition(entry: DictionaryApiEntry, word: string, context: st
   };
 }
 
-async function runOcrWithBase64(base64Image: string): Promise<string> {
+async function runOcrWithBase64(base64Image: string, sourceLanguage: SourceLanguageCode): Promise<string> {
+  const ocrLang = SOURCE_TO_OCR[sourceLanguage] ?? "cht";
   const formData = new FormData();
   formData.append("base64Image", `data:image/jpeg;base64,${base64Image}`);
-  formData.append("language", "eng");
+  formData.append("language", ocrLang);
   formData.append("isOverlayRequired", "false");
   formData.append("OCREngine", "2");
+  // Help mixed Chinese/English chat screens
+  if (sourceLanguage === "auto" || sourceLanguage === "cht" || sourceLanguage === "chs") {
+    formData.append("detectOrientation", "true");
+  }
 
   const response = await fetch(OCR_ENDPOINT, {
     method: "POST",
@@ -258,18 +362,18 @@ async function runOcrWithBase64(base64Image: string): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error("OCR 服務暫時無法使用，請稍後重試。");
+    throw new Error("OCR service unavailable.");
   }
 
   const data = (await response.json()) as OcrSpaceResponse;
   if (data.IsErroredOnProcessing) {
-    const message = Array.isArray(data.ErrorMessage) ? data.ErrorMessage.join("，") : data.ErrorMessage || "OCR 辨識失敗。";
+    const message = Array.isArray(data.ErrorMessage) ? data.ErrorMessage.join(", ") : data.ErrorMessage || "OCR failed.";
     throw new Error(message);
   }
 
   const parsedText = normalizeOcrText(data.ParsedResults?.[0]?.ParsedText || "");
   if (!parsedText) {
-    throw new Error("未辨識到文字，請調整拍攝角度或翻譯範圍。");
+    throw new Error("No text detected. Adjust the photo or crop range.");
   }
   return parsedText;
 }
@@ -279,8 +383,10 @@ export async function runRealOcrAndTranslate(params: {
   cropRect: CropRect;
   previewSize: { width: number; height: number };
   imageSize: { width: number; height: number };
+  sourceLanguage: SourceLanguageCode;
+  targetLanguage: TargetLanguageCode;
 }): Promise<{ sourceText: string; translatedText: string; croppedImageUri: string }> {
-  const { imageUri, cropRect, previewSize, imageSize } = params;
+  const { imageUri, cropRect, previewSize, imageSize, sourceLanguage, targetLanguage } = params;
   const imageCrop = mapCropRectToImage({ cropRect, previewSize, imageSize });
   const cropped = await manipulateAsync(
     imageUri,
@@ -302,11 +408,11 @@ export async function runRealOcrAndTranslate(params: {
   );
 
   if (!cropped.base64) {
-    throw new Error("圖片裁切失敗，請重新選圖。");
+    throw new Error("Image crop failed. Please pick the image again.");
   }
 
-  const sourceText = await runOcrWithBase64(cropped.base64);
-  const translatedText = await translateToZhTw(sourceText);
+  const sourceText = await runOcrWithBase64(cropped.base64, sourceLanguage);
+  const translatedText = await translateText(sourceText, sourceLanguage, targetLanguage);
   return {
     sourceText,
     translatedText,
@@ -314,28 +420,35 @@ export async function runRealOcrAndTranslate(params: {
   };
 }
 
-export const lookupWordMeaning = async (word: string, context = ""): Promise<WordMeaning> => {
+export const lookupWordMeaning = async (
+  word: string,
+  context = "",
+  targetLanguage: TargetLanguageCode = "zh-TW",
+  labels?: { properNoun: string; noDefinition: string }
+): Promise<WordMeaning> => {
+  const properNounLabel = labels?.properNoun ?? "proper noun";
+  const noDefLabel = labels?.noDefinition ?? "No definition found";
   const lookupForm = toLookupForm(word, context);
   const normalized = lookupForm.toLowerCase().replace(/[^a-z]/g, "");
   if (!normalized) {
-    throw new Error("請點選英文單字。");
+    throw new Error("Please tap an English word.");
   }
 
-  const cacheKey = `${normalized}:${isLikelyProperNoun(word, context) ? "pn" : "wd"}`;
+  const cacheKey = `${normalized}:${targetLanguage}:${isLikelyProperNoun(word, context) ? "pn" : "wd"}`;
   const cached = wordCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
   if (isLikelyProperNoun(word, context)) {
-    const mappedZh = PROPER_NOUN_ZH[normalized];
-    const wordZh = mappedZh || (await translateChunkToZhTw(lookupForm));
+    const mappedZh = targetLanguage.startsWith("zh") ? PROPER_NOUN_ZH[normalized] : undefined;
+    const wordZh = mappedZh || (await translateChunk(lookupForm, "eng", targetLanguage));
     const exampleEnglish = pickExampleFromContext(lookupForm, context) || "No example available.";
     const result: WordMeaning = {
       word: lookupForm,
       phonetic: "/N/A/",
       partOfSpeech: "proper noun",
-      definitionZhTw: `（專有名詞）${wordZh}`,
+      definitionZhTw: formatWordMeaning("proper noun", wordZh, properNounLabel, noDefLabel),
       example: exampleEnglish
     };
     wordCache.set(cacheKey, result);
@@ -361,11 +474,11 @@ export const lookupWordMeaning = async (word: string, context = ""): Promise<Wor
       }
     }
   } catch {
-    // 字典失敗時仍提供單字翻譯
+    // Dictionary failure: still provide word translation
   }
 
-  const wordZh = await translateChunkToZhTw(normalized);
-  const definitionZhTw = formatWordZh(partOfSpeech, wordZh);
+  const wordZh = await translateChunk(normalized, "eng", targetLanguage);
+  const definitionZhTw = formatWordMeaning(partOfSpeech, wordZh, properNounLabel, noDefLabel);
 
   const result: WordMeaning = {
     word: lookupForm,

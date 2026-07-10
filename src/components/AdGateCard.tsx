@@ -1,23 +1,26 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { UiLanguageCode } from "../i18n/languages";
+import { t } from "../i18n/strings";
 import { constants, PointsState } from "../services/pointsLedger";
 
 type Props = {
   pointsState: PointsState;
   onWatchAd: () => void;
+  uiLanguage: UiLanguageCode;
 };
 
-export function AdGateCard({ pointsState, onWatchAd }: Props) {
+export function AdGateCard({ pointsState, onWatchAd, uiLanguage }: Props) {
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>點數中心</Text>
-      <Text style={styles.content}>目前點數：{pointsState.points}</Text>
-      <Text style={styles.content}>看一次廣告 +{constants.REWARD_PER_AD} 點</Text>
-      <Text style={styles.content}>翻譯一次 -{constants.TRANSLATION_COST} 點</Text>
+      <Text style={styles.title}>{t(uiLanguage, "pointsCenter")}</Text>
+      <Text style={styles.content}>{t(uiLanguage, "currentPoints", { points: pointsState.points })}</Text>
+      <Text style={styles.content}>{t(uiLanguage, "adReward", { reward: constants.REWARD_PER_AD })}</Text>
+      <Text style={styles.content}>{t(uiLanguage, "translateCost", { cost: constants.TRANSLATION_COST })}</Text>
       <Pressable style={styles.button} onPress={onWatchAd}>
-        <Text style={styles.buttonText}>觀看廣告領點數</Text>
+        <Text style={styles.buttonText}>{t(uiLanguage, "watchAd")}</Text>
       </Pressable>
-      <Text style={styles.hint}>廣告完成後將自動加點，翻譯時扣點。</Text>
+      <Text style={styles.hint}>{t(uiLanguage, "pointsHint")}</Text>
     </View>
   );
 }

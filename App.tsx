@@ -1,18 +1,30 @@
 import "react-native-gesture-handler";
-import React, { useMemo, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StatusBar as NativeStatusBar, StyleSheet, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { AdGateCard } from "./src/components/AdGateCard";
 import { ImageRangeSelector } from "./src/components/ImageRangeSelector";
+import { LanguageOnboarding } from "./src/components/LanguageOnboarding";
+import { LanguageSettingsCard } from "./src/components/LanguageSettingsCard";
 import { TranslationCompareCard } from "./src/components/TranslationCompareCard";
 import { WordCloud } from "./src/components/WordCloud";
 import { WordSheet } from "./src/components/WordSheet";
+import { SOURCE_LANGUAGES, SourceLanguageCode, TargetLanguageCode, UiLanguageCode, labelForUiLanguage } from "./src/i18n/languages";
+import { t } from "./src/i18n/strings";
 import { lookupWordMeaning, runRealOcrAndTranslate } from "./src/services/mockTranslator";
-import { canTranslate, initialPointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
+import {
+  LanguageSettings,
+  defaultLanguageSettings,
+  loadLanguageSettings,
+  saveLanguageSettings,
+  settingsAfterUiPick
+} from "./src/services/languageSettings";
+import { canTranslate, constants, initialPointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
 import { CropRect, TranslationRecord, WordMeaning } from "./src/types";
+import { extractChatEntities, isExcludedWord } from "./src/utils/chatEntities";
 
 const initialCropRect: CropRect = { x: 20, y: 20, width: 220, height: 120 };
 const initialPreviewSize = { width: 320, height: 240 };
@@ -27,6 +39,8 @@ export default function App() {
 
 function AppContent() {
   const insets = useSafeAreaInsets();
+  const [settingsReady, setSettingsReady] = useState(false);
+  const [langSettings, setLangSettings] = useState<LanguageSettings>(defaultLanguageSettings);
   const [activeTab, setActiveTab] = useState<"editor" | "result">("editor");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [cropRect, setCropRect] = useState<CropRect>(initialCropRect);
@@ -45,13 +59,37 @@ function AppContent() {
   const [wordLoading, setWordLoading] = useState(false);
   const [croppedImageUri, setCroppedImageUri] = useState<string | null>(null);
 
+  const ui = langSettings.uiLanguage;
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const loaded = await loadLanguageSettings();
+      if (mounted) {
+        setLangSettings(loaded);
+        setSettingsReady(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const persistSettings = async (next: LanguageSettings) => {
+    setLangSettings(next);
+    await saveLanguageSettings(next);
+  };
+
+  const chatEntities = useMemo(() => extractChatEntities(sourceText), [sourceText]);
+
   const allWords = useMemo(
     () =>
       sourceText
-        .split(/\s+/)
+        .split(/[\s\n]+/)
         .map((word) => word.replace(/^[^a-zA-Z]+|[^a-zA-Z'.-]+$/g, ""))
-        .filter((word) => /[a-zA-Z]/.test(word)),
-    [sourceText]
+        .filter((word) => /[a-zA-Z]/.test(word))
+        .filter((word) => !isExcludedWord(word, chatEntities)),
+    [sourceText, chatEntities]
   );
 
   const orderedFocusWords = useMemo(() => {
@@ -135,7 +173,7 @@ function AppContent() {
   const captureFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("未授權", "請先允許相機權限。");
+      Alert.alert(t(ui, "alertNoCameraTitle"), t(ui, "alertNoCameraBody"));
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -156,15 +194,15 @@ function AppContent() {
 
   const translate = async () => {
     if (!imageUri) {
-      Alert.alert("尚未選圖", "請先拍照或選取圖片。");
+      Alert.alert(t(ui, "alertNoImageTitle"), t(ui, "alertNoImageBody"));
       return;
     }
     if (!cropLocked) {
-      Alert.alert("尚未固定範圍", "請先按「確定範圍」固定翻譯區域。");
+      Alert.alert(t(ui, "alertNoRangeTitle"), t(ui, "alertNoRangeBody"));
       return;
     }
     if (!canTranslate(pointsState)) {
-      Alert.alert("點數不足", "請先觀看廣告獲得點數。");
+      Alert.alert(t(ui, "alertNoPointsTitle"), t(ui, "alertNoPointsBody"));
       return;
     }
 
@@ -175,7 +213,9 @@ function AppContent() {
         imageUri,
         cropRect,
         previewSize,
-        imageSize
+        imageSize,
+        sourceLanguage: langSettings.sourceLanguage,
+        targetLanguage: langSettings.targetLanguage
       });
       setSourceText(data.sourceText);
       setTranslatedText(data.translatedText);
@@ -192,7 +232,7 @@ function AppContent() {
         ...prev
       ]);
     } catch (error) {
-      Alert.alert("翻譯失敗", error instanceof Error ? error.message : "未知錯誤");
+      Alert.alert(t(ui, "alertTranslateFail"), error instanceof Error ? error.message : t(ui, "alertUnknown"));
     } finally {
       setLoading(false);
     }
@@ -203,11 +243,14 @@ function AppContent() {
     setWordMeaning(null);
     setWordLoading(true);
     try {
-      const meaning = await lookupWordMeaning(word, sourceText);
+      const meaning = await lookupWordMeaning(word, sourceText, langSettings.targetLanguage, {
+        properNoun: t(ui, "properNoun"),
+        noDefinition: t(ui, "noDefinition")
+      });
       setWordMeaning(meaning);
     } catch (error) {
       setWordSheetVisible(false);
-      Alert.alert("查詢失敗", error instanceof Error ? error.message : "未知錯誤");
+      Alert.alert(t(ui, "alertLookupFail"), error instanceof Error ? error.message : t(ui, "alertUnknown"));
     } finally {
       setWordLoading(false);
     }
@@ -215,144 +258,232 @@ function AppContent() {
 
   const bottomPad = Math.max(insets.bottom, Platform.OS === "android" ? 24 : 12) + 48;
 
+  if (!settingsReady) {
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <SafeAreaView style={[styles.safeArea, styles.loadingScreen]}>
+          <ActivityIndicator size="large" color="#2563EB" />
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    );
+  }
+
+  if (!langSettings.onboardingDone) {
+    return (
+      <GestureHandlerRootView style={styles.root}>
+        <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
+          <LanguageOnboarding
+            onComplete={async (uiLanguage) => {
+              await persistSettings(settingsAfterUiPick(uiLanguage));
+            }}
+          />
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    );
+  }
+
+  const sourceLabel =
+    langSettings.sourceLanguage === "auto"
+      ? t(ui, "sourceAuto")
+      : SOURCE_LANGUAGES.find((item) => item.code === langSettings.sourceLanguage)?.nativeLabel ??
+        langSettings.sourceLanguage;
+
   return (
     <GestureHandlerRootView style={styles.root}>
-    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
-      <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
-        scrollEnabled={scrollEnabled}
-        showsVerticalScrollIndicator
-        keyboardShouldPersistTaps="handled"
-        nestedScrollEnabled
-      >
-        <Text style={styles.title}>ChoAppTrans</Text>
-        <Text style={styles.subtitle}>拍照翻譯 + 可調整範圍 + 單字解釋 + 廣告點數機制</Text>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right", "bottom"]}>
+        <StatusBar style="dark" />
+        <ScrollView
+          contentContainerStyle={[styles.container, { paddingBottom: bottomPad }]}
+          scrollEnabled={scrollEnabled}
+          showsVerticalScrollIndicator
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled
+        >
+          <Text style={styles.title}>{t(ui, "appTitle")}</Text>
+          <Text style={styles.subtitle}>{t(ui, "appSubtitle")}</Text>
 
-        <View style={styles.tabWrap}>
-          <Pressable onPress={() => setActiveTab("editor")} style={[styles.tab, activeTab === "editor" && styles.tabActive]}>
-            <Text style={[styles.tabText, activeTab === "editor" && styles.tabTextActive]}>拍照編輯</Text>
-          </Pressable>
-          <Pressable onPress={() => setActiveTab("result")} style={[styles.tab, activeTab === "result" && styles.tabActive]}>
-            <Text style={[styles.tabText, activeTab === "result" && styles.tabTextActive]}>翻譯結果</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.row}>
-          <Pressable style={styles.secondaryButton} onPress={captureFromCamera}>
-            <Text style={styles.secondaryText}>拍照</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={pickFromLibrary}>
-            <Text style={styles.secondaryText}>選圖</Text>
-          </Pressable>
-        </View>
-
-        {activeTab === "editor" && !imageUri ? (
-          <View style={styles.welcomeCard}>
-            <Text style={styles.welcomeTitle}>開始使用 ChoAppTrans</Text>
-            <Text style={styles.welcomeStep}>1. 點上方「拍照」或「選圖」</Text>
-            <Text style={styles.welcomeStep}>2. 框選要翻譯的區域，按「確定範圍」</Text>
-            <Text style={styles.welcomeStep}>3. 扣 2 點開始翻譯，點單字看中文譯義</Text>
-            <Text style={styles.welcomeHint}>提示：框外區域不會被翻譯，只處理藍框內文字。</Text>
+          <View style={styles.tabWrap}>
+            <Pressable onPress={() => setActiveTab("editor")} style={[styles.tab, activeTab === "editor" && styles.tabActive]}>
+              <Text style={[styles.tabText, activeTab === "editor" && styles.tabTextActive]}>{t(ui, "tabEditor")}</Text>
+            </Pressable>
+            <Pressable onPress={() => setActiveTab("result")} style={[styles.tab, activeTab === "result" && styles.tabActive]}>
+              <Text style={[styles.tabText, activeTab === "result" && styles.tabTextActive]}>{t(ui, "tabResult")}</Text>
+            </Pressable>
           </View>
-        ) : null}
 
-        {activeTab === "editor" && !imageUri ? (
-          <AdGateCard pointsState={pointsState} onWatchAd={() => setPointsState((prev) => rewardForAd(prev))} />
-        ) : null}
+          <View style={styles.row}>
+            <Pressable style={styles.secondaryButton} onPress={captureFromCamera}>
+              <Text style={styles.secondaryText}>{t(ui, "takePhoto")}</Text>
+            </Pressable>
+            <Pressable style={styles.secondaryButton} onPress={pickFromLibrary}>
+              <Text style={styles.secondaryText}>{t(ui, "pickImage")}</Text>
+            </Pressable>
+          </View>
 
-        {activeTab === "editor" && imageUri ? (
-          <>
-            <ImageRangeSelector
-              imageUri={imageUri}
-              imageSize={imageSize}
-              locked={cropLocked}
-              onInteractionChange={(isInteracting) => {
-                setScrollEnabled(!isInteracting);
+          {activeTab === "editor" ? (
+            <LanguageSettingsCard
+              uiLanguage={ui}
+              sourceLanguage={langSettings.sourceLanguage}
+              targetLanguage={langSettings.targetLanguage}
+              onChangeUi={(code: UiLanguageCode) => {
+                void persistSettings({
+                  ...langSettings,
+                  uiLanguage: code,
+                  targetLanguage: langSettings.targetLanguage === langSettings.uiLanguage ? code : langSettings.targetLanguage
+                });
               }}
-              onLock={(nextCropRect, nextPreviewSize) => {
-                setCropRect(nextCropRect);
-                setPreviewSize(nextPreviewSize);
-                setCropLocked(true);
+              onChangeSource={(code: SourceLanguageCode) => {
+                void persistSettings({ ...langSettings, sourceLanguage: code });
               }}
-              onUnlock={() => setCropLocked(false)}
+              onChangeTarget={(code: TargetLanguageCode) => {
+                void persistSettings({ ...langSettings, targetLanguage: code });
+              }}
             />
+          ) : null}
 
-            {cropLocked ? (
-              <Pressable style={styles.translateButton} onPress={translate} disabled={loading}>
-                <Text style={styles.translateText}>{loading ? "翻譯中..." : "扣 2 點開始翻譯"}</Text>
-              </Pressable>
-            ) : null}
+          {activeTab === "editor" && !imageUri ? (
+            <View style={styles.welcomeCard}>
+              <Text style={styles.welcomeTitle}>{t(ui, "welcomeTitle")}</Text>
+              <Text style={styles.welcomeStep}>{t(ui, "welcomeStep1")}</Text>
+              <Text style={styles.welcomeStep}>{t(ui, "welcomeStep2")}</Text>
+              <Text style={styles.welcomeStep}>{t(ui, "welcomeStep3")}</Text>
+              <Text style={styles.welcomeHint}>{t(ui, "welcomeHint")}</Text>
+            </View>
+          ) : null}
 
-            <AdGateCard pointsState={pointsState} onWatchAd={() => setPointsState((prev) => rewardForAd(prev))} />
-          </>
-        ) : null}
+          {activeTab === "editor" && !imageUri ? (
+            <AdGateCard
+              pointsState={pointsState}
+              uiLanguage={ui}
+              onWatchAd={() => setPointsState((prev) => rewardForAd(prev))}
+            />
+          ) : null}
 
-        {activeTab === "result" && !translatedText ? (
-          <View style={styles.welcomeCard}>
-            <Text style={styles.welcomeTitle}>尚無翻譯結果</Text>
-            <Text style={styles.welcomeStep}>請先到「拍照編輯」完成翻譯，結果會顯示在這裡。</Text>
-          </View>
-        ) : null}
+          {activeTab === "editor" && imageUri ? (
+            <>
+              <Text style={styles.langPair}>
+                {t(ui, "langPairHint", {
+                  source: sourceLabel,
+                  target: labelForUiLanguage(langSettings.targetLanguage)
+                })}
+              </Text>
 
-        {activeTab === "result" ? (
-          <AdGateCard pointsState={pointsState} onWatchAd={() => setPointsState((prev) => rewardForAd(prev))} />
-        ) : null}
-
-        {activeTab === "result" && translatedText ? (
-          <View style={styles.resultBlock}>
-            {croppedImageUri ? (
-              <TranslationCompareCard
-                imageUri={croppedImageUri}
-                sourceText={sourceText}
-                translatedText={translatedText}
+              <ImageRangeSelector
+                imageUri={imageUri}
+                imageSize={imageSize}
+                locked={cropLocked}
+                labels={{
+                  rangeLocked: t(ui, "rangeLocked"),
+                  rangeAdjust: t(ui, "rangeAdjust"),
+                  dragHint: t(ui, "dragHint"),
+                  translationArea: t(ui, "translationArea"),
+                  readjustRange: t(ui, "readjustRange"),
+                  confirmRange: t(ui, "confirmRange")
+                }}
+                onInteractionChange={(isInteracting) => {
+                  setScrollEnabled(!isInteracting);
+                }}
+                onLock={(nextCropRect, nextPreviewSize) => {
+                  setCropRect(nextCropRect);
+                  setPreviewSize(nextPreviewSize);
+                  setCropLocked(true);
+                }}
+                onUnlock={() => setCropLocked(false)}
               />
-            ) : null}
 
-            <View style={styles.resultCard}>
-              <Text style={styles.blockTitle}>單字（由前到後，字越大越重要，可點查看）</Text>
-              {allWords.length > 0 ? (
-                <Pressable style={styles.toggleWordsButton} onPress={() => setShowAllWords((prev) => !prev)}>
-                  <Text style={styles.toggleWordsText}>
-                    {showAllWords
-                      ? `收合重點單字（${orderedFocusWords.length}）`
-                      : `展開全部單字（${allWords.length}）`}
+              {cropLocked ? (
+                <Pressable style={styles.translateButton} onPress={translate} disabled={loading}>
+                  <Text style={styles.translateText}>
+                    {loading
+                      ? t(ui, "translating")
+                      : t(ui, "startTranslate", { cost: constants.TRANSLATION_COST })}
                   </Text>
                 </Pressable>
               ) : null}
-              {words.length === 0 ? (
-                <Text style={styles.placeholder}>尚無辨識結果</Text>
-              ) : (
-                <WordCloud words={words} onPressWord={openWordMeaning} />
-              )}
-            </View>
 
-            <View style={styles.resultCard}>
-              <Text style={styles.blockTitle}>最近紀錄</Text>
-              {history.length === 0 ? (
-                <Text style={styles.placeholder}>尚無紀錄</Text>
-              ) : (
-                history.slice(0, 3).map((item) => (
-                  <Text key={item.id} style={styles.historyText}>
-                    {new Date(item.createdAt).toLocaleString()} - {item.translatedText}
-                  </Text>
-                ))
-              )}
-            </View>
-          </View>
-        ) : null}
-      </ScrollView>
+              <AdGateCard
+                pointsState={pointsState}
+                uiLanguage={ui}
+                onWatchAd={() => setPointsState((prev) => rewardForAd(prev))}
+              />
+            </>
+          ) : null}
 
-      <WordSheet
-        visible={wordSheetVisible}
-        loading={wordLoading}
-        meaning={wordMeaning}
-        onClose={() => {
-          setWordSheetVisible(false);
-          setWordLoading(false);
-        }}
-      />
-    </SafeAreaView>
+          {activeTab === "result" && !translatedText ? (
+            <View style={styles.welcomeCard}>
+              <Text style={styles.welcomeTitle}>{t(ui, "noResultTitle")}</Text>
+              <Text style={styles.welcomeStep}>{t(ui, "noResultBody")}</Text>
+            </View>
+          ) : null}
+
+          {activeTab === "result" ? (
+            <AdGateCard
+              pointsState={pointsState}
+              uiLanguage={ui}
+              onWatchAd={() => setPointsState((prev) => rewardForAd(prev))}
+            />
+          ) : null}
+
+          {activeTab === "result" && translatedText ? (
+            <View style={styles.resultBlock}>
+              {croppedImageUri ? (
+                <TranslationCompareCard
+                  imageUri={croppedImageUri}
+                  sourceText={sourceText}
+                  translatedText={translatedText}
+                  title={t(ui, "compareTitle")}
+                  sourceLabel={t(ui, "ocrSource")}
+                  translationLabel={t(ui, "translationLabel")}
+                  copyLabel={t(ui, "copy")}
+                  copiedLabel={t(ui, "copied")}
+                />
+              ) : null}
+
+              <View style={styles.resultCard}>
+                <Text style={styles.blockTitle}>{t(ui, "wordsTitle")}</Text>
+                {allWords.length > 0 ? (
+                  <Pressable style={styles.toggleWordsButton} onPress={() => setShowAllWords((prev) => !prev)}>
+                    <Text style={styles.toggleWordsText}>
+                      {showAllWords
+                        ? t(ui, "collapseWords", { count: orderedFocusWords.length })
+                        : t(ui, "expandWords", { count: allWords.length })}
+                    </Text>
+                  </Pressable>
+                ) : null}
+                {words.length === 0 ? (
+                  <Text style={styles.placeholder}>{t(ui, "noWords")}</Text>
+                ) : (
+                  <WordCloud words={words} onPressWord={openWordMeaning} />
+                )}
+              </View>
+
+              <View style={styles.resultCard}>
+                <Text style={styles.blockTitle}>{t(ui, "recentHistory")}</Text>
+                {history.length === 0 ? (
+                  <Text style={styles.placeholder}>{t(ui, "noHistory")}</Text>
+                ) : (
+                  history.slice(0, 3).map((item) => (
+                    <Text key={item.id} style={styles.historyText}>
+                      {new Date(item.createdAt).toLocaleString()} - {item.translatedText}
+                    </Text>
+                  ))
+                )}
+              </View>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        <WordSheet
+          visible={wordSheetVisible}
+          loading={wordLoading}
+          meaning={wordMeaning}
+          uiLanguage={ui}
+          onClose={() => {
+            setWordSheetVisible(false);
+            setWordLoading(false);
+          }}
+        />
+      </SafeAreaView>
     </GestureHandlerRootView>
   );
 }
@@ -364,6 +495,10 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#F3F4F6"
+  },
+  loadingScreen: {
+    alignItems: "center",
+    justifyContent: "center"
   },
   container: {
     padding: 16,
@@ -399,6 +534,11 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: "#4B5563"
+  },
+  langPair: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1E40AF"
   },
   tabWrap: {
     flexDirection: "row",
@@ -462,9 +602,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 15
   },
-  wordList: {
-    gap: 8
-  },
   toggleWordsButton: {
     backgroundColor: "#DBEAFE",
     borderRadius: 8,
@@ -476,31 +613,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700"
   },
-  wordRow: {
-    backgroundColor: "#EEF2F7",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6
-  },
-  wordIndex: {
-    color: "#4B5563",
-    width: 18,
-    fontWeight: "700"
-  },
-  wordRowText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827"
-  },
   placeholder: {
     color: "#6B7280"
-  },
-  resultText: {
-    color: "#111827",
-    lineHeight: 22
   },
   historyText: {
     fontSize: 12,
