@@ -7,9 +7,10 @@ type Props = {
   title: string;
   subtitle: string;
   points: number;
+  showSuperLuckyBadge?: boolean;
 };
 
-export function AppHeader({ title, subtitle, points }: Props) {
+export function AppHeader({ title, subtitle, points, showSuperLuckyBadge = false }: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.blobA} />
@@ -27,6 +28,7 @@ export function AppHeader({ title, subtitle, points }: Props) {
           </View>
         </View>
         <View style={styles.pointsBadge}>
+          {showSuperLuckyBadge ? <Ionicons name="ribbon" size={14} color="#C4B5FD" /> : null}
           <Ionicons name="diamond" size={14} color={colors.warning} />
           <Text style={styles.pointsValue}>{points}</Text>
         </View>

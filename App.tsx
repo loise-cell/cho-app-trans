@@ -5,7 +5,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
-import { AdGateCard } from "./src/components/AdGateCard";
+import { AdGateCard, LastAdReward } from "./src/components/AdGateCard";
 import { AppHeader } from "./src/components/AppHeader";
 import { ImageRangeSelector } from "./src/components/ImageRangeSelector";
 import { LanguageOnboarding } from "./src/components/LanguageOnboarding";
@@ -24,6 +24,14 @@ import {
   settingsAfterUiPick
 } from "./src/services/languageSettings";
 import { canTranslate, constants, initialPointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
+import {
+  BadgesState,
+  SUPER_LUCKY_TRANSLATOR_BADGE,
+  defaultBadgesState,
+  hasBadge,
+  loadBadgesState,
+  unlockBadge
+} from "./src/services/badges";
 import { CropRect, TranslationRecord, WordMeaning } from "./src/types";
 import { extractChatEntities, isExcludedWord } from "./src/utils/chatEntities";
 import { cardBase, colors, radius, spacing } from "./src/theme";
@@ -61,15 +69,19 @@ function AppContent() {
   const [cropLocked, setCropLocked] = useState(false);
   const [wordLoading, setWordLoading] = useState(false);
   const [croppedImageUri, setCroppedImageUri] = useState<string | null>(null);
+  const [lastAdReward, setLastAdReward] = useState<LastAdReward | null>(null);
+  const [badgesState, setBadgesState] = useState<BadgesState>(defaultBadgesState);
 
   const ui = langSettings.uiLanguage;
+  const hasSuperLuckyBadge = hasBadge(badgesState, SUPER_LUCKY_TRANSLATOR_BADGE);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const loaded = await loadLanguageSettings();
+      const [loaded, badges] = await Promise.all([loadLanguageSettings(), loadBadgesState()]);
       if (mounted) {
         setLangSettings(loaded);
+        setBadgesState(badges);
         setSettingsReady(true);
       }
     })();
@@ -241,6 +253,26 @@ function AppContent() {
     }
   };
 
+  const handleWatchAd = async () => {
+    const result = rewardForAd(pointsState);
+    setPointsState(result.state);
+    setLastAdReward({ earned: result.earned, tier: result.tier });
+
+    if (result.tier === "mega") {
+      const { state: nextBadges, isNew } = await unlockBadge(badgesState, SUPER_LUCKY_TRANSLATOR_BADGE);
+      setBadgesState(nextBadges);
+      const body = isNew
+        ? `${t(ui, "megaJackpotBody", { points: result.earned })}\n\n${t(ui, "badgeUnlockedBody")}`
+        : t(ui, "megaJackpotBody", { points: result.earned });
+      Alert.alert(t(ui, "megaJackpotTitle"), body);
+      return;
+    }
+
+    if (result.tier === "lucky") {
+      Alert.alert(t(ui, "jackpotTitle"), t(ui, "jackpotBody", { points: result.earned }));
+    }
+  };
+
   const openWordMeaning = async (word: string) => {
     setWordSheetVisible(true);
     setWordMeaning(null);
@@ -302,7 +334,12 @@ function AppContent() {
           keyboardShouldPersistTaps="handled"
           nestedScrollEnabled
         >
-          <AppHeader title={t(ui, "appTitle")} subtitle={t(ui, "appSubtitle")} points={pointsState.points} />
+          <AppHeader
+            title={t(ui, "appTitle")}
+            subtitle={t(ui, "appSubtitle")}
+            points={pointsState.points}
+            showSuperLuckyBadge={hasSuperLuckyBadge}
+          />
 
           <View style={styles.tabWrap}>
             <Pressable
@@ -370,7 +407,9 @@ function AppContent() {
             <AdGateCard
               pointsState={pointsState}
               uiLanguage={ui}
-              onWatchAd={() => setPointsState((prev) => rewardForAd(prev))}
+              onWatchAd={handleWatchAd}
+              lastReward={lastAdReward}
+              hasSuperLuckyBadge={hasSuperLuckyBadge}
             />
           ) : null}
 
@@ -425,7 +464,9 @@ function AppContent() {
               <AdGateCard
                 pointsState={pointsState}
                 uiLanguage={ui}
-                onWatchAd={() => setPointsState((prev) => rewardForAd(prev))}
+                onWatchAd={handleWatchAd}
+              lastReward={lastAdReward}
+              hasSuperLuckyBadge={hasSuperLuckyBadge}
               />
             </>
           ) : null}
@@ -444,7 +485,9 @@ function AppContent() {
             <AdGateCard
               pointsState={pointsState}
               uiLanguage={ui}
-              onWatchAd={() => setPointsState((prev) => rewardForAd(prev))}
+              onWatchAd={handleWatchAd}
+              lastReward={lastAdReward}
+              hasSuperLuckyBadge={hasSuperLuckyBadge}
             />
           ) : null}
 

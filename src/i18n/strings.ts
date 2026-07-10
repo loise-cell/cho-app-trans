@@ -20,6 +20,24 @@ export type StringKey =
   | "translateCost"
   | "watchAd"
   | "pointsHint"
+  | "adRewardNormal"
+  | "adJackpotRule"
+  | "adMegaJackpotRule"
+  | "translateReady"
+  | "translateNeedMore"
+  | "lastRewardNormal"
+  | "lastRewardJackpot"
+  | "lastRewardMega"
+  | "jackpotTitle"
+  | "jackpotBody"
+  | "megaJackpotTitle"
+  | "megaJackpotBody"
+  | "badgeSuperLuckyName"
+  | "badgeSuperLuckyDesc"
+  | "badgeSuperLuckyLocked"
+  | "badgeUnlockedTitle"
+  | "badgeUnlockedBody"
+  | "pointsStatsAds"
   | "rangeLocked"
   | "rangeAdjust"
   | "dragHint"
@@ -90,7 +108,25 @@ const zhTW: Dictionary = {
   adReward: "看一次廣告 +{reward} 點",
   translateCost: "翻譯一次 -{cost} 點",
   watchAd: "觀看廣告領點數",
-  pointsHint: "廣告完成後將自動加點，翻譯時扣點。",
+  pointsHint: "廣告完成後自動加點，翻譯時扣點。",
+  adRewardNormal: "一般獎勵 +{reward} 點",
+  adJackpotRule: "幸運爆擊 {chance}% 機率 +{jackpot} 點",
+  adMegaJackpotRule: "超級大獎 {chance}% 機率 +{jackpot} 點",
+  translateReady: "可翻譯 {count} 次",
+  translateNeedMore: "還差 {need} 點可翻譯 1 次",
+  lastRewardNormal: "上次獲得 +{points} 點",
+  lastRewardJackpot: "幸運爆擊！+{points} 點",
+  lastRewardMega: "超級大獎！！+{points} 點",
+  jackpotTitle: "幸運爆擊！",
+  jackpotBody: "恭喜獲得 {points} 點！",
+  megaJackpotTitle: "超級大獎！！",
+  megaJackpotBody: "太幸運了！獲得 {points} 點！",
+  badgeSuperLuckyName: "超幸運翻譯家",
+  badgeSuperLuckyDesc: "抽中 0.01% 超級大獎的專屬徽章",
+  badgeSuperLuckyLocked: "尚未解鎖 · 0.01% 超級大獎",
+  badgeUnlockedTitle: "獲得新徽章！",
+  badgeUnlockedBody: "恭喜獲得「超幸運翻譯家」特殊徽章！",
+  pointsStatsAds: "已看廣告 {count} 次",
   rangeLocked: "範圍已固定（只翻譯框內）",
   rangeAdjust: "調整翻譯範圍（拖上方移動、拉右下角縮放）",
   dragHint: "拖曳移動",
@@ -160,7 +196,25 @@ const zhCN: Dictionary = {
   adReward: "看一次广告 +{reward} 点",
   translateCost: "翻译一次 -{cost} 点",
   watchAd: "观看广告领点数",
-  pointsHint: "广告完成后将自动加点，翻译时扣点。",
+  pointsHint: "广告完成后自动加点，翻译时扣点。",
+  adRewardNormal: "一般奖励 +{reward} 点",
+  adJackpotRule: "幸运暴击 {chance}% 概率 +{jackpot} 点",
+  adMegaJackpotRule: "超级大奖 {chance}% 概率 +{jackpot} 点",
+  translateReady: "可翻译 {count} 次",
+  translateNeedMore: "还差 {need} 点可翻译 1 次",
+  lastRewardNormal: "上次获得 +{points} 点",
+  lastRewardJackpot: "幸运暴击！+{points} 点",
+  lastRewardMega: "超级大奖！！+{points} 点",
+  jackpotTitle: "幸运暴击！",
+  jackpotBody: "恭喜获得 {points} 点！",
+  megaJackpotTitle: "超级大奖！！",
+  megaJackpotBody: "太幸运了！获得 {points} 点！",
+  badgeSuperLuckyName: "超幸运翻译家",
+  badgeSuperLuckyDesc: "抽中 0.01% 超级大奖的专属徽章",
+  badgeSuperLuckyLocked: "尚未解锁 · 0.01% 超级大奖",
+  badgeUnlockedTitle: "获得新徽章！",
+  badgeUnlockedBody: "恭喜获得「超幸运翻译家」特殊徽章！",
+  pointsStatsAds: "已看广告 {count} 次",
   rangeLocked: "范围已固定（只翻译框内）",
   rangeAdjust: "调整翻译范围（拖上方移动、拉右下角缩放）",
   dragHint: "拖曳移动",
@@ -231,6 +285,24 @@ const en: Dictionary = {
   translateCost: "Translate -{cost} points",
   watchAd: "Watch ad for points",
   pointsHint: "Points are added after ads and spent on translation.",
+  adRewardNormal: "Normal reward +{reward} pts",
+  adJackpotRule: "Lucky hit {chance}% chance +{jackpot} pts",
+  adMegaJackpotRule: "Mega prize {chance}% chance +{jackpot} pts",
+  translateReady: "Ready to translate {count}x",
+  translateNeedMore: "{need} more pts for 1 translation",
+  lastRewardNormal: "Last reward +{points} pts",
+  lastRewardJackpot: "Lucky hit! +{points} pts",
+  lastRewardMega: "MEGA prize!! +{points} pts",
+  jackpotTitle: "Lucky hit!",
+  jackpotBody: "You earned {points} points!",
+  megaJackpotTitle: "MEGA prize!!",
+  megaJackpotBody: "Incredible! You earned {points} points!",
+  badgeSuperLuckyName: "Super Lucky Translator",
+  badgeSuperLuckyDesc: "Exclusive badge for the 0.01% mega prize",
+  badgeSuperLuckyLocked: "Locked · 0.01% mega prize",
+  badgeUnlockedTitle: "New badge unlocked!",
+  badgeUnlockedBody: "You earned the Super Lucky Translator badge!",
+  pointsStatsAds: "{count} ads watched",
   rangeLocked: "Range locked (translate inside box only)",
   rangeAdjust: "Adjust range (drag top to move, corner to resize)",
   dragHint: "Drag to move",
