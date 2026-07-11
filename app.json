@@ -24,7 +24,8 @@
             "minSdkVersion": 24
           }
         }
-      ]
+      ],
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true,
