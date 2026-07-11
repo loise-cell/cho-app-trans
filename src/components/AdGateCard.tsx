@@ -5,6 +5,7 @@ import { UiLanguageCode } from "../i18n/languages";
 import { t } from "../i18n/strings";
 import { cardBase, colors, radius, spacing } from "../theme";
 import { AdRewardTier, constants, PointsState, translateCountAvailable } from "../services/pointsLedger";
+import { isUsingTestRewardedAds } from "../services/rewardedAds";
 
 export type LastAdReward = {
   earned: number;
@@ -138,6 +139,7 @@ export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, has
         <Text style={styles.buttonText}>{adLoading ? t(uiLanguage, "watchAdLoading") : t(uiLanguage, "watchAd")}</Text>
       </Pressable>
       <Text style={styles.hint}>{t(uiLanguage, "pointsHint")}</Text>
+      {isUsingTestRewardedAds() ? <Text style={styles.devHint}>{t(uiLanguage, "watchAdDevTestHint")}</Text> : null}
     </View>
   );
 }
@@ -369,5 +371,12 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textAlign: "center",
     lineHeight: 16
+  },
+  devHint: {
+    fontSize: 10,
+    color: colors.textMuted,
+    textAlign: "center",
+    lineHeight: 15,
+    marginTop: 4
   }
 });

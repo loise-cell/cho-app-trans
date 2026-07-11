@@ -91,6 +91,7 @@ export type StringKey =
   | "watchAdFailed"
   | "watchAdClosedEarly"
   | "watchAdUnavailable"
+  | "watchAdDevTestHint"
   | "properNoun"
   | "noDefinition";
 
@@ -187,6 +188,7 @@ const zhTW: Dictionary = {
   watchAdFailed: "廣告載入失敗，請稍後再試。",
   watchAdClosedEarly: "需完整觀看廣告才能獲得點數。",
   watchAdUnavailable: "目前無法播放廣告，請使用正式版 App。",
+  watchAdDevTestHint: "開發版使用 Google 測試廣告；正式上架後才會改用你的 AdMob 單元。",
   properNoun: "專有名詞",
   noDefinition: "查無譯義"
 };
@@ -282,6 +284,7 @@ const zhCN: Dictionary = {
   watchAdFailed: "广告加载失败，请稍后再试。",
   watchAdClosedEarly: "需完整观看广告才能获得点数。",
   watchAdUnavailable: "目前无法播放广告，请使用正式版 App。",
+  watchAdDevTestHint: "开发版使用 Google 测试广告；正式上架后才会改用你的 AdMob 单元。",
   properNoun: "专有名词",
   noDefinition: "查无释义"
 };
@@ -377,6 +380,7 @@ const en: Dictionary = {
   watchAdFailed: "Ad failed to load. Please try again later.",
   watchAdClosedEarly: "Watch the full ad to earn points.",
   watchAdUnavailable: "Ads are unavailable. Please use a production build.",
+  watchAdDevTestHint: "Dev builds use Google test ads; your AdMob unit is used after store release.",
   properNoun: "Proper noun",
   noDefinition: "No definition found"
 };
