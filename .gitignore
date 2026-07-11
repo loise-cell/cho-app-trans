@@ -2,6 +2,11 @@ node_modules
 .expo
 .expo-shared
 dist
+android
+ios
+build.json
+build-log.txt
+build-info.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

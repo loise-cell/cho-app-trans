@@ -14,6 +14,17 @@
           "androidAppId": "ca-app-pub-7306915590865813~6425491869",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.21",
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24
+          }
+        }
       ]
     ],
     "ios": {
@@ -28,7 +39,8 @@
       "package": "com.choapptrans.mobile",
       "permissions": [
         "CAMERA",
-        "READ_MEDIA_IMAGES"
+        "READ_MEDIA_IMAGES",
+        "INTERNET"
       ]
     },
     "extra": {
