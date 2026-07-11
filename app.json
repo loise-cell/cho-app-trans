@@ -3,6 +3,7 @@
     "name": "Cho App Trans",
     "slug": "cho-app-trans",
     "version": "1.0.0",
+    "owner": "chofong",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "plugins": [
@@ -32,7 +33,10 @@
     },
     "extra": {
       "translationCostPoints": 2,
-      "rewardPerAd": 2
+      "rewardPerAd": 2,
+      "eas": {
+        "projectId": "f1ea064e-d1c2-4743-813c-4c268a311cee"
+      }
     }
   }
 }
