@@ -1,9 +1,11 @@
 import React, { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { UI_LANGUAGES, UiLanguageCode } from "../i18n/languages";
 import { t } from "../i18n/strings";
 import { colors, radius, spacing } from "../theme";
+import { LegalDocumentModal } from "./LegalDocumentModal";
+import { saveLegalConsent } from "../services/legalConsent";
 
 type Props = {
   onComplete: (uiLanguage: UiLanguageCode) => void;
@@ -11,6 +13,17 @@ type Props = {
 
 export function LanguageOnboarding({ onComplete }: Props) {
   const [selected, setSelected] = useState<UiLanguageCode>("zh-TW");
+  const [consented, setConsented] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+
+  const handleContinue = async () => {
+    if (!consented) {
+      Alert.alert(t(selected, "legalPrivacy"), t(selected, "legalConsentRequired"));
+      return;
+    }
+    await saveLegalConsent();
+    onComplete(selected);
+  };
 
   return (
     <View style={styles.root}>
@@ -41,10 +54,31 @@ export function LanguageOnboarding({ onComplete }: Props) {
         })}
       </ScrollView>
 
-      <Pressable style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]} onPress={() => onComplete(selected)}>
+      <Pressable style={styles.consentRow} onPress={() => setConsented((prev) => !prev)}>
+        <Ionicons
+          name={consented ? "checkbox" : "square-outline"}
+          size={22}
+          color={consented ? colors.primary : colors.textMuted}
+        />
+        <Text style={styles.consentText}>
+          {t(selected, "legalConsentPrefix")}{" "}
+          <Text style={styles.consentLink} onPress={() => setPrivacyOpen(true)}>
+            {t(selected, "legalConsentLink")}
+          </Text>
+        </Text>
+      </Pressable>
+
+      <Pressable style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]} onPress={() => void handleContinue()}>
         <Text style={styles.buttonText}>{t(selected, "onboardingContinue")}</Text>
         <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
       </Pressable>
+
+      <LegalDocumentModal
+        visible={privacyOpen}
+        docId="privacy"
+        uiLanguage={selected}
+        onClose={() => setPrivacyOpen(false)}
+      />
     </View>
   );
 }
@@ -122,6 +156,23 @@ const styles = StyleSheet.create({
   },
   optionSubActive: {
     color: "rgba(255,255,255,0.75)"
+  },
+  consentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs
+  },
+  consentText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 20,
+    color: colors.textSecondary
+  },
+  consentLink: {
+    color: colors.primary,
+    fontWeight: "700",
+    textDecorationLine: "underline"
   },
   button: {
     flexDirection: "row",

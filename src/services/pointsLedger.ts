@@ -1,7 +1,9 @@
-const TRANSLATION_COST = 2;
-const REWARD_PER_AD = 2;
+const MIN_TRANSLATION_COST = 3;
+/** Each full block of this many characters adds 1 point (on top of the minimum). */
+const CHARS_PER_POINT = 50;
+const REWARD_PER_AD = 1;
 const JACKPOT_REWARD = 10;
-const JACKPOT_CHANCE = 0.02;
+const JACKPOT_CHANCE = 0.01;
 const MEGA_JACKPOT_REWARD = 100;
 const MEGA_JACKPOT_CHANCE = 0.0001;
 
@@ -30,7 +32,24 @@ export const initialPointsState: PointsState = {
   totalTranslations: 0
 };
 
-export const canTranslate = (state: PointsState): boolean => state.points >= TRANSLATION_COST;
+export function billableCharCount(text: string): number {
+  return text.trim().length;
+}
+
+/** Points charged from OCR text length: min 3 pts, +1 pt per 50 characters (rounded up). */
+export function translationCostForText(text: string): number {
+  const chars = billableCharCount(text);
+  if (chars === 0) {
+    return MIN_TRANSLATION_COST;
+  }
+  return Math.max(MIN_TRANSLATION_COST, Math.ceil(chars / CHARS_PER_POINT));
+}
+
+export const canTranslate = (state: PointsState): boolean => state.points >= MIN_TRANSLATION_COST;
+
+export function canTranslateWithCost(state: PointsState, cost: number): boolean {
+  return state.points >= cost;
+}
 
 export function rewardForAd(state: PointsState): AdRewardResult {
   const roll = Math.random();
@@ -56,24 +75,28 @@ export function rewardForAd(state: PointsState): AdRewardResult {
   };
 }
 
-export const spendForTranslation = (state: PointsState): PointsState => {
-  if (!canTranslate(state)) {
+export function spendForTranslation(state: PointsState, cost: number): PointsState {
+  if (!canTranslateWithCost(state, cost)) {
     throw new Error("點數不足，請先觀看廣告。");
   }
 
   return {
     ...state,
-    points: state.points - TRANSLATION_COST,
+    points: state.points - cost,
     totalTranslations: state.totalTranslations + 1
   };
-};
+}
 
+/** Short-text translations affordable at current balance (minimum tier only). */
 export function translateCountAvailable(points: number): number {
-  return Math.floor(points / TRANSLATION_COST);
+  return Math.floor(points / MIN_TRANSLATION_COST);
 }
 
 export const constants = {
-  TRANSLATION_COST,
+  MIN_TRANSLATION_COST,
+  /** @deprecated use MIN_TRANSLATION_COST */
+  TRANSLATION_COST: MIN_TRANSLATION_COST,
+  CHARS_PER_POINT,
   REWARD_PER_AD,
   JACKPOT_REWARD,
   JACKPOT_CHANCE_PERCENT: Math.round(JACKPOT_CHANCE * 100),

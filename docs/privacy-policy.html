@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>隱私權政策 — Cho App Trans</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <nav>
+        <a href="index.html">← 首頁</a>
+        <a href="terms-of-service.html">服務條款</a>
+        <a href="ad-points-policy.html">廣告與點數規範</a>
+      </nav>
+      <div class="card">
+        <h1>隱私權政策</h1>
+        <p class="updated">最後更新日期：2026-07-11</p>
+
+        <p>
+          Cho App Trans（以下稱「本 App」）由開發者營運。使用本 App 即表示您已閱讀並理解本政策。
+        </p>
+
+        <h2>1. 我們蒐集哪些資料</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>類型</th>
+              <th>說明</th>
+              <th>是否上傳至伺服器</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>相機／相簿圖片</td>
+              <td>您主動拍攝或選取，用於 OCR 與翻譯</td>
+              <td>是（經由我們的 API 代理轉送至 OCR 服務）</td>
+            </tr>
+            <tr>
+              <td>辨識與翻譯文字</td>
+              <td>OCR 原文與翻譯結果</td>
+              <td>是（翻譯流程中）</td>
+            </tr>
+            <tr>
+              <td>點數與徽章</td>
+              <td>儲存在裝置本機</td>
+              <td>否（目前版本）</td>
+            </tr>
+            <tr>
+              <td>語言偏好</td>
+              <td>介面與翻譯語言設定</td>
+              <td>否（儲存在裝置本機）</td>
+            </tr>
+            <tr>
+              <td>廣告互動</td>
+              <td>Google AdMob 獎勵廣告觀看事件</td>
+              <td>由 Google 依其政策處理</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>我們不要求您註冊帳號，也不主動蒐集姓名、電話或精確定位。</p>
+
+        <h2>2. 資料用途</h2>
+        <ul>
+          <li>提供圖片文字辨識（OCR）、翻譯與單字查詢</li>
+          <li>透過觀看獎勵廣告發放點數，並在翻譯時扣點</li>
+          <li>防止濫用（API 代理限流）</li>
+        </ul>
+
+        <h2>3. 後端代理與第三方服務</h2>
+        <p>
+          為保護 API 金鑰與實施限流，OCR 與翻譯請求會先經由
+          <strong>Cloudflare Workers</strong>（我們的 API 代理）轉送，再交由下列第三方處理：
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>服務</th>
+              <th>用途</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>OCR.space</td>
+              <td>圖片文字辨識</td>
+            </tr>
+            <tr>
+              <td>MyMemory (Translated.net)</td>
+              <td>機器翻譯</td>
+            </tr>
+            <tr>
+              <td>dictionaryapi.dev</td>
+              <td>英文單字查詢（於 App 內查詢時）</td>
+            </tr>
+            <tr>
+              <td>Google AdMob</td>
+              <td>獎勵式廣告</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>我們不會將您的內容用於訓練模型或再行銷。代理伺服器不長期保存您的圖片或翻譯內容。</p>
+
+        <h2>4. 資料保存與刪除</h2>
+        <ul>
+          <li>翻譯紀錄僅暫存於 App 記憶體，關閉後可能清除</li>
+          <li>點數與設定保存在裝置本機，解除安裝即刪除</li>
+          <li>刪除相關資料請來信聯絡我們</li>
+        </ul>
+
+        <h2>5. 兒童隱私</h2>
+        <p>本 App 並非專為 13 歲以下兒童設計。</p>
+
+        <h2>6. 聯絡方式</h2>
+        <p>Email：<a href="mailto:Ls214306@gmail.com">Ls214306@gmail.com</a></p>
+
+        <footer>本文件供 Google Play 上架與使用者查閱。</footer>
+      </div>
+    </div>
+  </body>
+</html>

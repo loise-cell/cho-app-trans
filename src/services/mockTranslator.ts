@@ -9,6 +9,7 @@ import {
 } from "../i18n/languages";
 import { mapCropRectToImage } from "../utils/cropMapping";
 import { unwrapSoftLineBreaks } from "../utils/textUnwrap";
+import { apiUrl, apiRequestHeaders, useApiProxy } from "./apiConfig";
 
 type OcrSpaceResponse = {
   IsErroredOnProcessing: boolean;
@@ -107,6 +108,42 @@ function isMostlyTargetScript(text: string, target: TargetLanguageCode): boolean
   return false;
 }
 
+async function translateChunkDirect(
+  text: string,
+  source: SourceLanguageCode,
+  target: TargetLanguageCode
+): Promise<string> {
+  const from = SOURCE_TO_MYMEMORY[source] ?? "en";
+  const to = TARGET_TO_MYMEMORY[target] ?? "en";
+  const url = `${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`${from}|${to}`)}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error("Translation service unavailable.");
+  }
+  const data = (await response.json()) as {
+    responseData?: { translatedText?: string };
+  };
+  return data.responseData?.translatedText?.trim() || text;
+}
+
+async function translateChunkViaProxy(
+  text: string,
+  source: SourceLanguageCode,
+  target: TargetLanguageCode
+): Promise<string> {
+  const response = await fetch(apiUrl("/v1/translate"), {
+    method: "POST",
+    headers: apiRequestHeaders(),
+    body: JSON.stringify({ text, source, target })
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(message || "Translation service unavailable.");
+  }
+  const data = (await response.json()) as { translatedText?: string };
+  return data.translatedText?.trim() || text;
+}
+
 async function translateChunk(
   text: string,
   source: SourceLanguageCode,
@@ -122,15 +159,10 @@ async function translateChunk(
     return text;
   }
 
-  const url = `${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`${from}|${to}`)}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error("Translation service unavailable.");
+  if (useApiProxy()) {
+    return translateChunkViaProxy(text, source, target);
   }
-  const data = (await response.json()) as {
-    responseData?: { translatedText?: string };
-  };
-  return data.responseData?.translatedText?.trim() || text;
+  return translateChunkDirect(text, source, target);
 }
 
 async function translateParagraph(
@@ -341,14 +373,25 @@ function pickBestDefinition(entry: DictionaryApiEntry, word: string, context: st
   };
 }
 
-async function runOcrWithBase64(base64Image: string, sourceLanguage: SourceLanguageCode): Promise<string> {
+function parseOcrResponse(data: OcrSpaceResponse): string {
+  if (data.IsErroredOnProcessing) {
+    const message = Array.isArray(data.ErrorMessage) ? data.ErrorMessage.join(", ") : data.ErrorMessage || "OCR failed.";
+    throw new Error(message);
+  }
+  const parsedText = normalizeOcrText(data.ParsedResults?.[0]?.ParsedText || "");
+  if (!parsedText) {
+    throw new Error("No text detected. Adjust the photo or crop range.");
+  }
+  return parsedText;
+}
+
+async function runOcrDirect(base64Image: string, sourceLanguage: SourceLanguageCode): Promise<string> {
   const ocrLang = SOURCE_TO_OCR[sourceLanguage] ?? "cht";
   const formData = new FormData();
   formData.append("base64Image", `data:image/jpeg;base64,${base64Image}`);
   formData.append("language", ocrLang);
   formData.append("isOverlayRequired", "false");
   formData.append("OCREngine", "2");
-  // Help mixed Chinese/English chat screens
   if (sourceLanguage === "auto" || sourceLanguage === "cht" || sourceLanguage === "chs") {
     formData.append("detectOrientation", "true");
   }
@@ -365,28 +408,44 @@ async function runOcrWithBase64(base64Image: string, sourceLanguage: SourceLangu
     throw new Error("OCR service unavailable.");
   }
 
-  const data = (await response.json()) as OcrSpaceResponse;
-  if (data.IsErroredOnProcessing) {
-    const message = Array.isArray(data.ErrorMessage) ? data.ErrorMessage.join(", ") : data.ErrorMessage || "OCR failed.";
-    throw new Error(message);
-  }
+  return parseOcrResponse((await response.json()) as OcrSpaceResponse);
+}
 
-  const parsedText = normalizeOcrText(data.ParsedResults?.[0]?.ParsedText || "");
+async function runOcrViaProxy(base64Image: string, sourceLanguage: SourceLanguageCode): Promise<string> {
+  const response = await fetch(apiUrl("/v1/ocr"), {
+    method: "POST",
+    headers: apiRequestHeaders(),
+    body: JSON.stringify({ base64Image, sourceLanguage })
+  });
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    throw new Error(message || "OCR service unavailable.");
+  }
+  const data = (await response.json()) as { text?: string; error?: string };
+  if (data.error) {
+    throw new Error(data.error);
+  }
+  const parsedText = normalizeOcrText(data.text || "");
   if (!parsedText) {
     throw new Error("No text detected. Adjust the photo or crop range.");
   }
   return parsedText;
 }
 
-export async function runRealOcrAndTranslate(params: {
+async function runOcrWithBase64(base64Image: string, sourceLanguage: SourceLanguageCode): Promise<string> {
+  if (useApiProxy()) {
+    return runOcrViaProxy(base64Image, sourceLanguage);
+  }
+  return runOcrDirect(base64Image, sourceLanguage);
+}
+
+async function cropImageForOcr(params: {
   imageUri: string;
   cropRect: CropRect;
   previewSize: { width: number; height: number };
   imageSize: { width: number; height: number };
-  sourceLanguage: SourceLanguageCode;
-  targetLanguage: TargetLanguageCode;
-}): Promise<{ sourceText: string; translatedText: string; croppedImageUri: string }> {
-  const { imageUri, cropRect, previewSize, imageSize, sourceLanguage, targetLanguage } = params;
+}): Promise<{ base64: string; uri: string }> {
+  const { imageUri, cropRect, previewSize, imageSize } = params;
   const imageCrop = mapCropRectToImage({ cropRect, previewSize, imageSize });
   const cropped = await manipulateAsync(
     imageUri,
@@ -411,12 +470,37 @@ export async function runRealOcrAndTranslate(params: {
     throw new Error("Image crop failed. Please pick the image again.");
   }
 
+  return { base64: cropped.base64, uri: cropped.uri };
+}
+
+export async function runOcrOnCrop(params: {
+  imageUri: string;
+  cropRect: CropRect;
+  previewSize: { width: number; height: number };
+  imageSize: { width: number; height: number };
+  sourceLanguage: SourceLanguageCode;
+}): Promise<{ sourceText: string; croppedImageUri: string }> {
+  const { sourceLanguage, ...cropParams } = params;
+  const cropped = await cropImageForOcr(cropParams);
   const sourceText = await runOcrWithBase64(cropped.base64, sourceLanguage);
+  return { sourceText, croppedImageUri: cropped.uri };
+}
+
+export async function runRealOcrAndTranslate(params: {
+  imageUri: string;
+  cropRect: CropRect;
+  previewSize: { width: number; height: number };
+  imageSize: { width: number; height: number };
+  sourceLanguage: SourceLanguageCode;
+  targetLanguage: TargetLanguageCode;
+}): Promise<{ sourceText: string; translatedText: string; croppedImageUri: string }> {
+  const { sourceLanguage, targetLanguage, ...cropParams } = params;
+  const { sourceText, croppedImageUri } = await runOcrOnCrop({ ...cropParams, sourceLanguage });
   const translatedText = await translateText(sourceText, sourceLanguage, targetLanguage);
   return {
     sourceText,
     translatedText,
-    croppedImageUri: cropped.uri
+    croppedImageUri
   };
 }
 

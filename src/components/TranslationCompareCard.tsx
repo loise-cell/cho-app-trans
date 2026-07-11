@@ -14,6 +14,7 @@ type Props = {
   translationLabel: string;
   copyLabel: string;
   copiedLabel: string;
+  disclaimer?: string;
 };
 
 export function TranslationCompareCard({
@@ -24,7 +25,8 @@ export function TranslationCompareCard({
   sourceLabel,
   translationLabel,
   copyLabel,
-  copiedLabel
+  copiedLabel,
+  disclaimer
 }: Props) {
   const [copiedKey, setCopiedKey] = useState<"source" | "translation" | null>(null);
 
@@ -71,6 +73,12 @@ export function TranslationCompareCard({
         onCopy={() => copyText("translation", displayTranslation)}
         muted={false}
       />
+      {disclaimer ? (
+        <View style={styles.disclaimerRow}>
+          <Ionicons name="information-circle-outline" size={14} color={colors.textMuted} />
+          <Text style={styles.disclaimer}>{disclaimer}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -198,5 +206,17 @@ const styles = StyleSheet.create({
   bodyTextBold: {
     color: colors.text,
     fontWeight: "600"
+  },
+  disclaimerRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 6,
+    marginTop: spacing.xs
+  },
+  disclaimer: {
+    flex: 1,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textMuted
   }
 });

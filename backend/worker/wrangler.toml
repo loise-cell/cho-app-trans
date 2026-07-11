@@ -1,0 +1,10 @@
+name = "choapptrans-api"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+
+[vars]
+RATE_LIMIT_PER_MINUTE = "30"
+
+# Secrets (set via wrangler secret put):
+# OCR_SPACE_API_KEY - required
+# API_SECRET - optional Bearer token for app requests

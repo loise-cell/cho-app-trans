@@ -1,0 +1,14 @@
+{
+  "name": "choapptrans-api-worker",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250710.0",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.24.0"
+  }
+}

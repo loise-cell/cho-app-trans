@@ -46,6 +46,9 @@ export type StringKey =
   | "readjustRange"
   | "confirmRange"
   | "startTranslate"
+  | "startTranslateVariable"
+  | "translateCostVariable"
+  | "translateReadyMin"
   | "translating"
   | "compareTitle"
   | "ocrSource"
@@ -80,6 +83,7 @@ export type StringKey =
   | "alertNoRangeBody"
   | "alertNoPointsTitle"
   | "alertNoPointsBody"
+  | "alertNoPointsForContent"
   | "alertNoCameraTitle"
   | "alertNoCameraBody"
   | "alertTranslateFail"
@@ -93,7 +97,18 @@ export type StringKey =
   | "watchAdUnavailable"
   | "watchAdDevTestHint"
   | "properNoun"
-  | "noDefinition";
+  | "noDefinition"
+  | "legalSectionTitle"
+  | "legalSectionHint"
+  | "legalPrivacy"
+  | "legalTerms"
+  | "legalAdPoints"
+  | "legalUpdatedAt"
+  | "legalFullVersionHint"
+  | "legalConsentPrefix"
+  | "legalConsentLink"
+  | "legalConsentRequired"
+  | "translationDisclaimer";
 
 type Dictionary = Record<StringKey, string>;
 
@@ -143,6 +158,9 @@ const zhTW: Dictionary = {
   readjustRange: "重新調整範圍",
   confirmRange: "確定範圍",
   startTranslate: "扣 {cost} 點開始翻譯",
+  startTranslateVariable: "開始翻譯（至少 {min} 點，每 {chars} 字 +1 點）",
+  translateCostVariable: "扣點：至少 {min} 點，每 {chars} 字多 1 點",
+  translateReadyMin: "至少可翻譯 {count} 次短句",
   translating: "翻譯中...",
   compareTitle: "翻譯對照（你框選的範圍）",
   ocrSource: "OCR 原文",
@@ -177,6 +195,7 @@ const zhTW: Dictionary = {
   alertNoRangeBody: "請先按「確定範圍」固定翻譯區域。",
   alertNoPointsTitle: "點數不足",
   alertNoPointsBody: "請先觀看廣告獲得點數。",
+  alertNoPointsForContent: "此內容需 {cost} 點，目前 {points} 點，還差 {need} 點。請先看廣告。",
   alertNoCameraTitle: "未授權",
   alertNoCameraBody: "請先允許相機權限。",
   alertTranslateFail: "翻譯失敗",
@@ -190,7 +209,18 @@ const zhTW: Dictionary = {
   watchAdUnavailable: "目前無法播放廣告，請使用正式版 App。",
   watchAdDevTestHint: "開發版使用 Google 測試廣告；正式上架後才會改用你的 AdMob 單元。",
   properNoun: "專有名詞",
-  noDefinition: "查無譯義"
+  noDefinition: "查無譯義",
+  legalSectionTitle: "法律與隱私",
+  legalSectionHint: "上架必備文件，建議正式發布前由律師審閱。",
+  legalPrivacy: "隱私權政策",
+  legalTerms: "服務條款",
+  legalAdPoints: "廣告與點數規範",
+  legalUpdatedAt: "最後更新：{date}",
+  legalFullVersionHint: "完整版本請參閱專案 legal/ 目錄或官方網頁（上架時需提供公開網址）。",
+  legalConsentPrefix: "我已閱讀並同意",
+  legalConsentLink: "隱私權政策",
+  legalConsentRequired: "請先同意隱私權政策再繼續。",
+  translationDisclaimer: "翻譯結果僅供參考，不保證正確；不得用於法律、醫療等專業用途。"
 };
 
 const zhCN: Dictionary = {
@@ -239,6 +269,9 @@ const zhCN: Dictionary = {
   readjustRange: "重新调整范围",
   confirmRange: "确定范围",
   startTranslate: "扣 {cost} 点开始翻译",
+  startTranslateVariable: "开始翻译（至少 {min} 点，每 {chars} 字 +1 点）",
+  translateCostVariable: "扣点：至少 {min} 点，每 {chars} 字多 1 点",
+  translateReadyMin: "至少可翻译 {count} 次短句",
   translating: "翻译中...",
   compareTitle: "翻译对照（你框选的范围）",
   ocrSource: "OCR 原文",
@@ -273,6 +306,7 @@ const zhCN: Dictionary = {
   alertNoRangeBody: "请先按「确定范围」固定翻译区域。",
   alertNoPointsTitle: "点数不足",
   alertNoPointsBody: "请先观看广告获得点数。",
+  alertNoPointsForContent: "此内容需 {cost} 点，目前 {points} 点，还差 {need} 点。请先看广告。",
   alertNoCameraTitle: "未授权",
   alertNoCameraBody: "请先允许相机权限。",
   alertTranslateFail: "翻译失败",
@@ -286,7 +320,18 @@ const zhCN: Dictionary = {
   watchAdUnavailable: "目前无法播放广告，请使用正式版 App。",
   watchAdDevTestHint: "开发版使用 Google 测试广告；正式上架后才会改用你的 AdMob 单元。",
   properNoun: "专有名词",
-  noDefinition: "查无释义"
+  noDefinition: "查无释义",
+  legalSectionTitle: "法律与隐私",
+  legalSectionHint: "上架必备文件，建议正式发布前由律师审阅。",
+  legalPrivacy: "隐私权政策",
+  legalTerms: "服务条款",
+  legalAdPoints: "广告与点数规范",
+  legalUpdatedAt: "最后更新：{date}",
+  legalFullVersionHint: "完整版本请参阅项目 legal/ 目录或官方网页（上架时需提供公开网址）。",
+  legalConsentPrefix: "我已阅读并同意",
+  legalConsentLink: "隐私权政策",
+  legalConsentRequired: "请先同意隐私权政策再继续。",
+  translationDisclaimer: "翻译结果仅供参考，不保证正确；不得用于法律、医疗等专业用途。"
 };
 
 const en: Dictionary = {
@@ -335,6 +380,9 @@ const en: Dictionary = {
   readjustRange: "Readjust range",
   confirmRange: "Confirm range",
   startTranslate: "Spend {cost} pts to translate",
+  startTranslateVariable: "Translate (min {min} pts, +1 pt per {chars} chars)",
+  translateCostVariable: "Cost: min {min} pts, +1 pt per {chars} chars",
+  translateReadyMin: "At least {count} short translations",
   translating: "Translating...",
   compareTitle: "Comparison (your selected area)",
   ocrSource: "OCR original",
@@ -369,6 +417,7 @@ const en: Dictionary = {
   alertNoRangeBody: "Confirm the translation range first.",
   alertNoPointsTitle: "Not enough points",
   alertNoPointsBody: "Watch an ad to earn points.",
+  alertNoPointsForContent: "This content needs {cost} pts; you have {points}. Need {need} more. Watch an ad.",
   alertNoCameraTitle: "Permission needed",
   alertNoCameraBody: "Please allow camera access.",
   alertTranslateFail: "Translation failed",
@@ -382,7 +431,18 @@ const en: Dictionary = {
   watchAdUnavailable: "Ads are unavailable. Please use a production build.",
   watchAdDevTestHint: "Dev builds use Google test ads; your AdMob unit is used after store release.",
   properNoun: "Proper noun",
-  noDefinition: "No definition found"
+  noDefinition: "No definition found",
+  legalSectionTitle: "Legal & privacy",
+  legalSectionHint: "Required for store release. Have a lawyer review before launch.",
+  legalPrivacy: "Privacy policy",
+  legalTerms: "Terms of service",
+  legalAdPoints: "Ads & points policy",
+  legalUpdatedAt: "Last updated: {date}",
+  legalFullVersionHint: "Full text is in the legal/ folder; publish a public URL for store listing.",
+  legalConsentPrefix: "I have read and agree to the",
+  legalConsentLink: "Privacy policy",
+  legalConsentRequired: "Please accept the privacy policy to continue.",
+  translationDisclaimer: "Translations are for reference only—not for legal, medical, or professional use."
 };
 
 const ja: Dictionary = {

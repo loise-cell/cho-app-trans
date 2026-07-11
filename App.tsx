@@ -6,17 +6,19 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from "react-native-
 import { StatusBar } from "expo-status-bar";
 import * as ImagePicker from "expo-image-picker";
 import { AdGateCard, LastAdReward } from "./src/components/AdGateCard";
+import { JackpotCelebration } from "./src/components/JackpotCelebration";
 import { AppHeader } from "./src/components/AppHeader";
 import { AppSplash } from "./src/components/AppSplash";
 import { ImageRangeSelector } from "./src/components/ImageRangeSelector";
 import { LanguageOnboarding } from "./src/components/LanguageOnboarding";
 import { LanguageSettingsCard } from "./src/components/LanguageSettingsCard";
+import { LegalCard } from "./src/components/LegalCard";
 import { TranslationCompareCard } from "./src/components/TranslationCompareCard";
 import { WordCloud } from "./src/components/WordCloud";
 import { WordSheet } from "./src/components/WordSheet";
 import { SOURCE_LANGUAGES, SourceLanguageCode, TargetLanguageCode, UiLanguageCode, labelForUiLanguage } from "./src/i18n/languages";
 import { t } from "./src/i18n/strings";
-import { lookupWordMeaning, runRealOcrAndTranslate } from "./src/services/mockTranslator";
+import { lookupWordMeaning, runOcrOnCrop, translateText } from "./src/services/mockTranslator";
 import {
   LanguageSettings,
   defaultLanguageSettings,
@@ -24,7 +26,7 @@ import {
   saveLanguageSettings,
   settingsAfterUiPick
 } from "./src/services/languageSettings";
-import { canTranslate, constants, initialPointsState, PointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
+import { canTranslate, constants, initialPointsState, PointsState, rewardForAd, spendForTranslation, translationCostForText, AdRewardTier } from "./src/services/pointsLedger";
 import { loadPointsState, commitPointsState } from "./src/services/pointsStorage";
 import { initRewardedAds, showRewardedAd } from "./src/services/rewardedAds";
 import {
@@ -77,6 +79,11 @@ function AppContent() {
   const [badgesState, setBadgesState] = useState<BadgesState>(defaultBadgesState);
   const [introComplete, setIntroComplete] = useState(false);
   const [adLoading, setAdLoading] = useState(false);
+  const [jackpotCelebration, setJackpotCelebration] = useState<{
+    tier: AdRewardTier;
+    points: number;
+    extraMessage?: string;
+  } | null>(null);
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const contentTranslateY = useRef(new Animated.Value(18)).current;
 
@@ -255,15 +262,16 @@ function AppContent() {
     if (result.tier === "mega") {
       const { state: nextBadges, isNew } = await unlockBadge(badgesState, SUPER_LUCKY_TRANSLATOR_BADGE);
       setBadgesState(nextBadges);
-      const body = isNew
-        ? `${t(ui, "megaJackpotBody", { points: result.earned })}\n\n${t(ui, "badgeUnlockedBody")}`
-        : t(ui, "megaJackpotBody", { points: result.earned });
-      Alert.alert(t(ui, "megaJackpotTitle"), body);
+      setJackpotCelebration({
+        tier: "mega",
+        points: result.earned,
+        extraMessage: isNew ? t(ui, "badgeUnlockedBody") : undefined
+      });
       return;
     }
 
     if (result.tier === "lucky") {
-      Alert.alert(t(ui, "jackpotTitle"), t(ui, "jackpotBody", { points: result.earned }));
+      setJackpotCelebration({ tier: "lucky", points: result.earned });
     }
   };
 
@@ -283,27 +291,39 @@ function AppContent() {
 
     setLoading(true);
     try {
-      const data = await runRealOcrAndTranslate({
+      const ocr = await runOcrOnCrop({
         imageUri,
         cropRect,
         previewSize,
         imageSize,
-        sourceLanguage: langSettings.sourceLanguage,
-        targetLanguage: langSettings.targetLanguage
+        sourceLanguage: langSettings.sourceLanguage
       });
-      const spent = spendForTranslation(activePoints);
+      const cost = translationCostForText(ocr.sourceText);
+      if (activePoints.points < cost) {
+        Alert.alert(
+          t(ui, "alertNoPointsTitle"),
+          t(ui, "alertNoPointsForContent", {
+            cost,
+            points: activePoints.points,
+            need: cost - activePoints.points
+          })
+        );
+        return;
+      }
+      const translated = await translateText(ocr.sourceText, langSettings.sourceLanguage, langSettings.targetLanguage);
+      const spent = spendForTranslation(activePoints, cost);
       const saved = await commitPointsState(spent);
       setPointsState(saved);
-      setSourceText(data.sourceText);
-      setTranslatedText(data.translatedText);
-      setCroppedImageUri(data.croppedImageUri);
+      setSourceText(ocr.sourceText);
+      setTranslatedText(translated);
+      setCroppedImageUri(ocr.croppedImageUri);
       setActiveTab("result");
       setHistory((prev) => [
         {
           id: String(Date.now()),
           createdAt: new Date().toISOString(),
-          sourceText: data.sourceText,
-          translatedText: data.translatedText,
+          sourceText: ocr.sourceText,
+          translatedText: translated,
           cropRect
         },
         ...prev
@@ -533,7 +553,12 @@ function AppContent() {
                 >
                   <Ionicons name="language" size={20} color="#FFFFFF" />
                   <Text style={styles.translateText}>
-                    {loading ? t(ui, "translating") : t(ui, "startTranslate", { cost: constants.TRANSLATION_COST })}
+                    {loading
+                      ? t(ui, "translating")
+                      : t(ui, "startTranslateVariable", {
+                          min: constants.MIN_TRANSLATION_COST,
+                          chars: constants.CHARS_PER_POINT
+                        })}
                   </Text>
                 </Pressable>
               ) : null}
@@ -582,6 +607,7 @@ function AppContent() {
                   translationLabel={t(ui, "translationLabel")}
                   copyLabel={t(ui, "copy")}
                   copiedLabel={t(ui, "copied")}
+                  disclaimer={t(ui, "translationDisclaimer")}
                 />
               ) : null}
 
@@ -626,6 +652,8 @@ function AppContent() {
               </View>
             </View>
           ) : null}
+
+          <LegalCard uiLanguage={ui} />
         </ScrollView>
         </Animated.View>
 
@@ -638,6 +666,14 @@ function AppContent() {
             setWordSheetVisible(false);
             setWordLoading(false);
           }}
+        />
+        <JackpotCelebration
+          visible={jackpotCelebration !== null}
+          tier={jackpotCelebration?.tier ?? "normal"}
+          points={jackpotCelebration?.points ?? 0}
+          uiLanguage={ui}
+          extraMessage={jackpotCelebration?.extraMessage}
+          onFinish={() => setJackpotCelebration(null)}
         />
       </SafeAreaView>
     </GestureHandlerRootView>

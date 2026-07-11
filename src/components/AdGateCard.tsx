@@ -23,10 +23,11 @@ type Props = {
 
 export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, hasSuperLuckyBadge = false, adLoading = false }: Props) {
   const { points, totalAdsWatched } = pointsState;
+  const minCost = constants.MIN_TRANSLATION_COST;
   const translateCount = translateCountAvailable(points);
-  const remainder = points % constants.TRANSLATION_COST;
-  const progress = points === 0 ? 0 : remainder === 0 ? 1 : remainder / constants.TRANSLATION_COST;
-  const needMore = remainder === 0 ? (translateCount > 0 ? 0 : constants.TRANSLATION_COST) : constants.TRANSLATION_COST - remainder;
+  const remainder = points % minCost;
+  const progress = points === 0 ? 0 : remainder === 0 ? 1 : remainder / minCost;
+  const needMore = remainder === 0 ? (translateCount > 0 ? 0 : minCost) : minCost - remainder;
 
   return (
     <View style={[styles.card, cardBase]}>
@@ -45,7 +46,7 @@ export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, has
           <Ionicons name={translateCount > 0 ? "checkmark-circle" : "hourglass-outline"} size={14} color={translateCount > 0 ? colors.success : colors.warning} />
           <Text style={[styles.statusText, translateCount > 0 ? styles.statusReady : styles.statusPending]}>
             {translateCount > 0
-              ? t(uiLanguage, "translateReady", { count: translateCount })
+              ? t(uiLanguage, "translateReadyMin", { count: translateCount })
               : t(uiLanguage, "translateNeedMore", { need: needMore })}
           </Text>
         </View>
@@ -56,7 +57,10 @@ export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, has
           <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
         </View>
         <Text style={styles.progressHint}>
-          {t(uiLanguage, "translateCost", { cost: constants.TRANSLATION_COST })}
+          {t(uiLanguage, "translateCostVariable", {
+            min: minCost,
+            chars: constants.CHARS_PER_POINT
+          })}
         </Text>
       </View>
 
