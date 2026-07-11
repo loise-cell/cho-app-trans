@@ -85,6 +85,12 @@ export type StringKey =
   | "alertTranslateFail"
   | "alertLookupFail"
   | "alertUnknown"
+  | "alertRetry"
+  | "alertNetworkError"
+  | "watchAdLoading"
+  | "watchAdFailed"
+  | "watchAdClosedEarly"
+  | "watchAdUnavailable"
   | "properNoun"
   | "noDefinition";
 
@@ -175,6 +181,12 @@ const zhTW: Dictionary = {
   alertTranslateFail: "翻譯失敗",
   alertLookupFail: "查詢失敗",
   alertUnknown: "未知錯誤",
+  alertRetry: "重試",
+  alertNetworkError: "網路連線失敗，請檢查網路後再試。",
+  watchAdLoading: "廣告載入中…",
+  watchAdFailed: "廣告載入失敗，請稍後再試。",
+  watchAdClosedEarly: "需完整觀看廣告才能獲得點數。",
+  watchAdUnavailable: "目前無法播放廣告，請使用正式版 App。",
   properNoun: "專有名詞",
   noDefinition: "查無譯義"
 };
@@ -264,6 +276,12 @@ const zhCN: Dictionary = {
   alertTranslateFail: "翻译失败",
   alertLookupFail: "查询失败",
   alertUnknown: "未知错误",
+  alertRetry: "重试",
+  alertNetworkError: "网络连接失败，请检查网络后再试。",
+  watchAdLoading: "广告加载中…",
+  watchAdFailed: "广告加载失败，请稍后再试。",
+  watchAdClosedEarly: "需完整观看广告才能获得点数。",
+  watchAdUnavailable: "目前无法播放广告，请使用正式版 App。",
   properNoun: "专有名词",
   noDefinition: "查无释义"
 };
@@ -353,6 +371,12 @@ const en: Dictionary = {
   alertTranslateFail: "Translation failed",
   alertLookupFail: "Lookup failed",
   alertUnknown: "Unknown error",
+  alertRetry: "Retry",
+  alertNetworkError: "Network error. Check your connection and try again.",
+  watchAdLoading: "Loading ad…",
+  watchAdFailed: "Ad failed to load. Please try again later.",
+  watchAdClosedEarly: "Watch the full ad to earn points.",
+  watchAdUnavailable: "Ads are unavailable. Please use a production build.",
   properNoun: "Proper noun",
   noDefinition: "No definition found"
 };

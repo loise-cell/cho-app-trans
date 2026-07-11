@@ -24,7 +24,9 @@ import {
   saveLanguageSettings,
   settingsAfterUiPick
 } from "./src/services/languageSettings";
-import { canTranslate, constants, initialPointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
+import { canTranslate, constants, initialPointsState, PointsState, rewardForAd, spendForTranslation } from "./src/services/pointsLedger";
+import { loadPointsState, commitPointsState } from "./src/services/pointsStorage";
+import { initRewardedAds, showRewardedAd } from "./src/services/rewardedAds";
 import {
   BadgesState,
   SUPER_LUCKY_TRANSLATOR_BADGE,
@@ -36,6 +38,7 @@ import {
 import { CropRect, TranslationRecord, WordMeaning } from "./src/types";
 import { extractChatEntities, isExcludedWord } from "./src/utils/chatEntities";
 import { cardBase, colors, radius, spacing } from "./src/theme";
+import { formatServiceError } from "./src/utils/serviceError";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 const initialCropRect: CropRect = { x: 20, y: 20, width: 220, height: 120 };
@@ -61,7 +64,7 @@ function AppContent() {
   const [sourceText, setSourceText] = useState("");
   const [translatedText, setTranslatedText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [pointsState, setPointsState] = useState(initialPointsState);
+  const [pointsState, setPointsState] = useState<PointsState | null>(null);
   const [wordSheetVisible, setWordSheetVisible] = useState(false);
   const [wordMeaning, setWordMeaning] = useState<WordMeaning | null>(null);
   const [history, setHistory] = useState<TranslationRecord[]>([]);
@@ -73,19 +76,22 @@ function AppContent() {
   const [lastAdReward, setLastAdReward] = useState<LastAdReward | null>(null);
   const [badgesState, setBadgesState] = useState<BadgesState>(defaultBadgesState);
   const [introComplete, setIntroComplete] = useState(false);
+  const [adLoading, setAdLoading] = useState(false);
   const contentOpacity = useRef(new Animated.Value(0)).current;
   const contentTranslateY = useRef(new Animated.Value(18)).current;
 
   const ui = langSettings.uiLanguage;
   const hasSuperLuckyBadge = hasBadge(badgesState, SUPER_LUCKY_TRANSLATOR_BADGE);
+  const activePoints = pointsState ?? initialPointsState;
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      const [loaded, badges] = await Promise.all([loadLanguageSettings(), loadBadgesState()]);
+      const [loaded, badges, points] = await Promise.all([loadLanguageSettings(), loadBadgesState(), loadPointsState()]);
       if (mounted) {
         setLangSettings(loaded);
         setBadgesState(badges);
+        setPointsState(points);
         setSettingsReady(true);
       }
     })();
@@ -93,6 +99,13 @@ function AppContent() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!introComplete) {
+      return;
+    }
+    void initRewardedAds();
+  }, [introComplete]);
 
   useEffect(() => {
     if (!introComplete) {
@@ -233,6 +246,27 @@ function AppContent() {
     }
   };
 
+  const grantAdReward = async () => {
+    const result = rewardForAd(activePoints);
+    const saved = await commitPointsState(result.state);
+    setPointsState(saved);
+    setLastAdReward({ earned: result.earned, tier: result.tier });
+
+    if (result.tier === "mega") {
+      const { state: nextBadges, isNew } = await unlockBadge(badgesState, SUPER_LUCKY_TRANSLATOR_BADGE);
+      setBadgesState(nextBadges);
+      const body = isNew
+        ? `${t(ui, "megaJackpotBody", { points: result.earned })}\n\n${t(ui, "badgeUnlockedBody")}`
+        : t(ui, "megaJackpotBody", { points: result.earned });
+      Alert.alert(t(ui, "megaJackpotTitle"), body);
+      return;
+    }
+
+    if (result.tier === "lucky") {
+      Alert.alert(t(ui, "jackpotTitle"), t(ui, "jackpotBody", { points: result.earned }));
+    }
+  };
+
   const translate = async () => {
     if (!imageUri) {
       Alert.alert(t(ui, "alertNoImageTitle"), t(ui, "alertNoImageBody"));
@@ -242,14 +276,13 @@ function AppContent() {
       Alert.alert(t(ui, "alertNoRangeTitle"), t(ui, "alertNoRangeBody"));
       return;
     }
-    if (!canTranslate(pointsState)) {
+    if (!canTranslate(activePoints)) {
       Alert.alert(t(ui, "alertNoPointsTitle"), t(ui, "alertNoPointsBody"));
       return;
     }
 
     setLoading(true);
     try {
-      setPointsState((prev) => spendForTranslation(prev));
       const data = await runRealOcrAndTranslate({
         imageUri,
         cropRect,
@@ -258,6 +291,9 @@ function AppContent() {
         sourceLanguage: langSettings.sourceLanguage,
         targetLanguage: langSettings.targetLanguage
       });
+      const spent = spendForTranslation(activePoints);
+      const saved = await commitPointsState(spent);
+      setPointsState(saved);
       setSourceText(data.sourceText);
       setTranslatedText(data.translatedText);
       setCroppedImageUri(data.croppedImageUri);
@@ -273,29 +309,38 @@ function AppContent() {
         ...prev
       ]);
     } catch (error) {
-      Alert.alert(t(ui, "alertTranslateFail"), error instanceof Error ? error.message : t(ui, "alertUnknown"));
+      const message = formatServiceError(error, t(ui, "alertNetworkError"), t(ui, "alertUnknown"));
+      Alert.alert(t(ui, "alertTranslateFail"), message, [
+        { text: t(ui, "close"), style: "cancel" },
+        { text: t(ui, "alertRetry"), onPress: () => void translate() }
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleWatchAd = async () => {
-    const result = rewardForAd(pointsState);
-    setPointsState(result.state);
-    setLastAdReward({ earned: result.earned, tier: result.tier });
-
-    if (result.tier === "mega") {
-      const { state: nextBadges, isNew } = await unlockBadge(badgesState, SUPER_LUCKY_TRANSLATOR_BADGE);
-      setBadgesState(nextBadges);
-      const body = isNew
-        ? `${t(ui, "megaJackpotBody", { points: result.earned })}\n\n${t(ui, "badgeUnlockedBody")}`
-        : t(ui, "megaJackpotBody", { points: result.earned });
-      Alert.alert(t(ui, "megaJackpotTitle"), body);
+    if (adLoading) {
       return;
     }
-
-    if (result.tier === "lucky") {
-      Alert.alert(t(ui, "jackpotTitle"), t(ui, "jackpotBody", { points: result.earned }));
+    setAdLoading(true);
+    try {
+      const adResult = await showRewardedAd();
+      if (adResult.status === "earned") {
+        await grantAdReward();
+        return;
+      }
+      if (adResult.status === "closed") {
+        Alert.alert(t(ui, "pointsCenter"), t(ui, "watchAdClosedEarly"));
+        return;
+      }
+      if (adResult.status === "failed") {
+        Alert.alert(t(ui, "pointsCenter"), t(ui, "watchAdFailed"));
+        return;
+      }
+      Alert.alert(t(ui, "pointsCenter"), t(ui, "watchAdUnavailable"));
+    } finally {
+      setAdLoading(false);
     }
   };
 
@@ -368,7 +413,7 @@ function AppContent() {
           <AppHeader
             title={t(ui, "appTitle")}
             subtitle={t(ui, "appSubtitle")}
-            points={pointsState.points}
+            points={activePoints.points}
             showSuperLuckyBadge={hasSuperLuckyBadge}
           />
 
@@ -436,11 +481,12 @@ function AppContent() {
 
           {activeTab === "editor" && !imageUri ? (
             <AdGateCard
-              pointsState={pointsState}
+              pointsState={activePoints}
               uiLanguage={ui}
               onWatchAd={handleWatchAd}
               lastReward={lastAdReward}
               hasSuperLuckyBadge={hasSuperLuckyBadge}
+              adLoading={adLoading}
             />
           ) : null}
 
@@ -493,11 +539,12 @@ function AppContent() {
               ) : null}
 
               <AdGateCard
-                pointsState={pointsState}
+                pointsState={activePoints}
                 uiLanguage={ui}
                 onWatchAd={handleWatchAd}
               lastReward={lastAdReward}
               hasSuperLuckyBadge={hasSuperLuckyBadge}
+              adLoading={adLoading}
               />
             </>
           ) : null}
@@ -514,11 +561,12 @@ function AppContent() {
 
           {activeTab === "result" ? (
             <AdGateCard
-              pointsState={pointsState}
+              pointsState={activePoints}
               uiLanguage={ui}
               onWatchAd={handleWatchAd}
               lastReward={lastAdReward}
               hasSuperLuckyBadge={hasSuperLuckyBadge}
+              adLoading={adLoading}
             />
           ) : null}
 

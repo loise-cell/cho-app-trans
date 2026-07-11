@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { UiLanguageCode } from "../i18n/languages";
 import { t } from "../i18n/strings";
@@ -17,9 +17,10 @@ type Props = {
   uiLanguage: UiLanguageCode;
   lastReward?: LastAdReward | null;
   hasSuperLuckyBadge?: boolean;
+  adLoading?: boolean;
 };
 
-export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, hasSuperLuckyBadge = false }: Props) {
+export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, hasSuperLuckyBadge = false, adLoading = false }: Props) {
   const { points, totalAdsWatched } = pointsState;
   const translateCount = translateCountAvailable(points);
   const remainder = points % constants.TRANSLATION_COST;
@@ -128,9 +129,13 @@ export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, has
         </View>
       ) : null}
 
-      <Pressable style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]} onPress={onWatchAd}>
-        <Ionicons name="play-circle" size={22} color="#FFFFFF" />
-        <Text style={styles.buttonText}>{t(uiLanguage, "watchAd")}</Text>
+      <Pressable
+        style={({ pressed }) => [styles.button, pressed && !adLoading && styles.buttonPressed, adLoading && styles.buttonDisabled]}
+        onPress={onWatchAd}
+        disabled={adLoading}
+      >
+        {adLoading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Ionicons name="play-circle" size={22} color="#FFFFFF" />}
+        <Text style={styles.buttonText}>{adLoading ? t(uiLanguage, "watchAdLoading") : t(uiLanguage, "watchAd")}</Text>
       </Pressable>
       <Text style={styles.hint}>{t(uiLanguage, "pointsHint")}</Text>
     </View>
@@ -350,6 +355,9 @@ const styles = StyleSheet.create({
   },
   buttonPressed: {
     opacity: 0.92
+  },
+  buttonDisabled: {
+    opacity: 0.72
   },
   buttonText: {
     color: "#FFFFFF",
