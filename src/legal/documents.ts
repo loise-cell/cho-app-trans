@@ -51,7 +51,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
   terms: {
     id: "terms",
     title: "服務條款",
-    updatedAt: "2026-07-11",
+    updatedAt: "2026-07-13",
     sections: [
       {
         heading: "服務內容",
