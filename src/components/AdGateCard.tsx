@@ -4,7 +4,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { UiLanguageCode } from "../i18n/languages";
 import { t } from "../i18n/strings";
 import { cardBase, colors, radius, spacing } from "../theme";
-import { AdRewardTier, constants, PointsState, translateCountAvailable } from "../services/pointsLedger";
+import { AdRewardTier, constants, PointsState, translateCountAvailable, canWatchAdToday, refreshDailyAdCount } from "../services/pointsLedger";
 import { isUsingTestRewardedAds } from "../services/rewardedAds";
 
 export type LastAdReward = {
@@ -22,7 +22,9 @@ type Props = {
 };
 
 export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, hasSuperLuckyBadge = false, adLoading = false }: Props) {
-  const { points, totalAdsWatched } = pointsState;
+  const state = refreshDailyAdCount(pointsState);
+  const { points, totalAdsWatched, adsWatchedToday } = state;
+  const adLimitReached = !canWatchAdToday(state);
   const minCost = constants.MIN_TRANSLATION_COST;
   const translateCount = translateCountAvailable(points);
   const remainder = points % minCost;
@@ -37,6 +39,13 @@ export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, has
           <Text style={styles.title}>{t(uiLanguage, "pointsCenter")}</Text>
         </View>
         <Text style={styles.stats}>{t(uiLanguage, "pointsStatsAds", { count: totalAdsWatched })}</Text>
+      </View>
+
+      <View style={styles.dailyLimitRow}>
+        <Ionicons name="calendar-outline" size={14} color={adLimitReached ? colors.warning : colors.textMuted} />
+        <Text style={[styles.dailyLimitText, adLimitReached && styles.dailyLimitReached]}>
+          {t(uiLanguage, "dailyAdLimitStats", { count: adsWatchedToday, limit: constants.DAILY_AD_LIMIT })}
+        </Text>
       </View>
 
       <View style={styles.balancePanel}>
@@ -135,14 +144,29 @@ export function AdGateCard({ pointsState, onWatchAd, uiLanguage, lastReward, has
       ) : null}
 
       <Pressable
-        style={({ pressed }) => [styles.button, pressed && !adLoading && styles.buttonPressed, adLoading && styles.buttonDisabled]}
+        style={({ pressed }) => [
+          styles.button,
+          pressed && !adLoading && !adLimitReached && styles.buttonPressed,
+          (adLoading || adLimitReached) && styles.buttonDisabled,
+          adLimitReached && styles.buttonLimitReached
+        ]}
         onPress={onWatchAd}
-        disabled={adLoading}
+        disabled={adLoading || adLimitReached}
       >
         {adLoading ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Ionicons name="play-circle" size={22} color="#FFFFFF" />}
-        <Text style={styles.buttonText}>{adLoading ? t(uiLanguage, "watchAdLoading") : t(uiLanguage, "watchAd")}</Text>
+        <Text style={styles.buttonText}>
+          {adLoading
+            ? t(uiLanguage, "watchAdLoading")
+            : adLimitReached
+              ? t(uiLanguage, "dailyAdLimitReached")
+              : t(uiLanguage, "watchAd")}
+        </Text>
       </Pressable>
-      <Text style={styles.hint}>{t(uiLanguage, "pointsHint")}</Text>
+      <Text style={styles.hint}>
+        {adLimitReached
+          ? t(uiLanguage, "dailyAdLimitHint", { limit: constants.DAILY_AD_LIMIT })
+          : t(uiLanguage, "pointsHint")}
+      </Text>
       {isUsingTestRewardedAds() ? <Text style={styles.devHint}>{t(uiLanguage, "watchAdDevTestHint")}</Text> : null}
     </View>
   );
@@ -174,6 +198,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textMuted,
     fontWeight: "600"
+  },
+  dailyLimitRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: -4
+  },
+  dailyLimitText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textSecondary
+  },
+  dailyLimitReached: {
+    color: colors.warning
   },
   balancePanel: {
     alignItems: "center",
@@ -364,6 +402,9 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.72
+  },
+  buttonLimitReached: {
+    backgroundColor: colors.textMuted
   },
   buttonText: {
     color: "#FFFFFF",

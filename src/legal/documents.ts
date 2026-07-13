@@ -18,13 +18,13 @@ export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
   privacy: {
     id: "privacy",
     title: "隱私權政策",
-    updatedAt: "2026-07-11",
+    updatedAt: "2026-07-13",
     sections: [
       {
         heading: "我們蒐集哪些資料",
         paragraphs: [
-          "相機／相簿圖片：您主動提供，用於 OCR 與翻譯，處理時會上傳至 OCR／翻譯服務。",
-          "辨識與翻譯文字：於翻譯流程中處理。",
+          "相機／相簿圖片：您主動提供，用於 OCR 與翻譯，翻譯時會送至 OCR 服務。",
+          "辨識與翻譯文字：於翻譯流程中送至第三方服務。",
           "點數、徽章、語言設定：儲存在裝置本機，目前不上傳至我們的伺服器。",
           "廣告互動：由 Google AdMob 依其隱私政策處理。"
         ]
@@ -32,11 +32,11 @@ export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
       {
         heading: "第三方服務",
         paragraphs: [
-          "OCR.space（文字辨識，經 Cloudflare Worker 代理）",
-          "MyMemory / Translated.net（機器翻譯，經 Worker 代理）",
-          "dictionaryapi.dev（英文單字查詢）",
+          "OCR.space（文字辨識；主要由 App 直連，必要時可能經 Cloudflare Worker 代理）",
+          "MyMemory / Translated.net（機器翻譯；App 直連）",
+          "dictionaryapi.dev（英文單字查詢；App 直連）",
           "Google AdMob（獎勵式廣告）",
-          "若啟用 API 代理伺服器，內容可能先經我們的伺服器轉送以保護金鑰與限流，不作訓練或再行銷用途。"
+          "我們不長期保存您的圖片或翻譯內容，亦不用於訓練或再行銷。"
         ]
       },
       {
@@ -71,6 +71,7 @@ export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
         heading: "使用者責任",
         paragraphs: [
           "僅上傳您有合法使用權之內容；不得刷點、破解或濫用服務。",
+          "每支手機每天最多觀看 15 則獎勵廣告（詳見《廣告與點數規範》）。",
           "點數不具現金價值，不得轉讓。"
         ]
       },
@@ -83,12 +84,13 @@ export const LEGAL_DOCUMENTS: Record<LegalDocId, LegalDocument> = {
   adPoints: {
     id: "adPoints",
     title: "廣告與點數規範",
-    updatedAt: "2026-07-11",
+    updatedAt: "2026-07-13",
     sections: [
       {
         heading: "取得點數",
         paragraphs: [
           "完整觀看 Google AdMob 獎勵廣告後發放點數（預設 +1，含幸運爆擊）。",
+          "每支手機每天最多 15 則廣告（依裝置本機時區，隔日 0 點重置）。",
           "未完整觀看不發點。開發版可能使用 Google 測試廣告。"
         ]
       },

@@ -26,7 +26,7 @@ import {
   saveLanguageSettings,
   settingsAfterUiPick
 } from "./src/services/languageSettings";
-import { canTranslate, constants, initialPointsState, PointsState, rewardForAd, spendForTranslation, translationCostForText, AdRewardTier } from "./src/services/pointsLedger";
+import { canTranslate, constants, initialPointsState, PointsState, rewardForAd, spendForTranslation, translationCostForText, AdRewardTier, canWatchAdToday, refreshDailyAdCount } from "./src/services/pointsLedger";
 import { loadPointsState, commitPointsState } from "./src/services/pointsStorage";
 import { initRewardedAds, showRewardedAd } from "./src/services/rewardedAds";
 import {
@@ -341,6 +341,14 @@ function AppContent() {
 
   const handleWatchAd = async () => {
     if (adLoading) {
+      return;
+    }
+    const todayState = refreshDailyAdCount(activePoints);
+    if (!canWatchAdToday(todayState)) {
+      Alert.alert(
+        t(ui, "alertDailyAdLimitTitle"),
+        t(ui, "alertDailyAdLimitBody", { limit: constants.DAILY_AD_LIMIT })
+      );
       return;
     }
     setAdLoading(true);

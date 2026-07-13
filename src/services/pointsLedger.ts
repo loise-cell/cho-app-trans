@@ -2,6 +2,7 @@ const MIN_TRANSLATION_COST = 3;
 /** Each full block of this many characters adds 1 point (on top of the minimum). */
 const CHARS_PER_POINT = 50;
 const REWARD_PER_AD = 1;
+const DAILY_AD_LIMIT = 15;
 const JACKPOT_REWARD = 10;
 const JACKPOT_CHANCE = 0.01;
 const MEGA_JACKPOT_REWARD = 100;
@@ -11,6 +12,10 @@ export type PointsState = {
   points: number;
   totalAdsWatched: number;
   totalTranslations: number;
+  /** Ads completed today (resets at local midnight). */
+  adsWatchedToday: number;
+  /** Local calendar date YYYY-MM-DD when adsWatchedToday was last updated. */
+  adsWatchDate: string;
 };
 
 export type AdRewardTier = "normal" | "lucky" | "mega";
@@ -26,10 +31,42 @@ export function isJackpotTier(tier: AdRewardTier): boolean {
   return tier === "lucky" || tier === "mega";
 }
 
+export function getLocalDateString(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** Reset today's ad count when the local calendar day changes. */
+export function refreshDailyAdCount(state: PointsState, now = new Date()): PointsState {
+  const today = getLocalDateString(now);
+  if (state.adsWatchDate === today) {
+    return state;
+  }
+  return {
+    ...state,
+    adsWatchedToday: 0,
+    adsWatchDate: today
+  };
+}
+
+export function canWatchAdToday(state: PointsState, now = new Date()): boolean {
+  const refreshed = refreshDailyAdCount(state, now);
+  return refreshed.adsWatchedToday < DAILY_AD_LIMIT;
+}
+
+export function remainingAdsToday(state: PointsState, now = new Date()): number {
+  const refreshed = refreshDailyAdCount(state, now);
+  return Math.max(0, DAILY_AD_LIMIT - refreshed.adsWatchedToday);
+}
+
 export const initialPointsState: PointsState = {
   points: 0,
   totalAdsWatched: 0,
-  totalTranslations: 0
+  totalTranslations: 0,
+  adsWatchedToday: 0,
+  adsWatchDate: getLocalDateString()
 };
 
 export function billableCharCount(text: string): number {
@@ -51,7 +88,12 @@ export function canTranslateWithCost(state: PointsState, cost: number): boolean 
   return state.points >= cost;
 }
 
-export function rewardForAd(state: PointsState): AdRewardResult {
+export function rewardForAd(state: PointsState, now = new Date()): AdRewardResult {
+  const refreshed = refreshDailyAdCount(state, now);
+  if (refreshed.adsWatchedToday >= DAILY_AD_LIMIT) {
+    throw new Error("Daily ad limit reached.");
+  }
+
   const roll = Math.random();
   let earned = REWARD_PER_AD;
   let tier: AdRewardTier = "normal";
@@ -64,11 +106,15 @@ export function rewardForAd(state: PointsState): AdRewardResult {
     tier = "lucky";
   }
 
+  const today = getLocalDateString(now);
+
   return {
     state: {
-      ...state,
-      points: state.points + earned,
-      totalAdsWatched: state.totalAdsWatched + 1
+      ...refreshed,
+      points: refreshed.points + earned,
+      totalAdsWatched: refreshed.totalAdsWatched + 1,
+      adsWatchedToday: refreshed.adsWatchedToday + 1,
+      adsWatchDate: today
     },
     earned,
     tier
@@ -98,6 +144,7 @@ export const constants = {
   TRANSLATION_COST: MIN_TRANSLATION_COST,
   CHARS_PER_POINT,
   REWARD_PER_AD,
+  DAILY_AD_LIMIT,
   JACKPOT_REWARD,
   JACKPOT_CHANCE_PERCENT: Math.round(JACKPOT_CHANCE * 100),
   MEGA_JACKPOT_REWARD,

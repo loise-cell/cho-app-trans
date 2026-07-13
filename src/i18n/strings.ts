@@ -96,6 +96,11 @@ export type StringKey =
   | "watchAdClosedEarly"
   | "watchAdUnavailable"
   | "watchAdDevTestHint"
+  | "dailyAdLimitStats"
+  | "dailyAdLimitReached"
+  | "dailyAdLimitHint"
+  | "alertDailyAdLimitTitle"
+  | "alertDailyAdLimitBody"
   | "properNoun"
   | "noDefinition"
   | "legalSectionTitle"
@@ -208,6 +213,11 @@ const zhTW: Dictionary = {
   watchAdClosedEarly: "需完整觀看廣告才能獲得點數。",
   watchAdUnavailable: "目前無法播放廣告，請使用正式版 App。",
   watchAdDevTestHint: "開發版使用 Google 測試廣告；正式上架後才會改用你的 AdMob 單元。",
+  dailyAdLimitStats: "今日已看 {count}/{limit} 則",
+  dailyAdLimitReached: "今日額度已用完",
+  dailyAdLimitHint: "每支手機每天最多 {limit} 則廣告，隔日 0 點重置。",
+  alertDailyAdLimitTitle: "今日廣告額度已滿",
+  alertDailyAdLimitBody: "每支手機每天最多觀看 {limit} 則廣告，請明天再試。",
   properNoun: "專有名詞",
   noDefinition: "查無譯義",
   legalSectionTitle: "法律與隱私",
@@ -319,6 +329,11 @@ const zhCN: Dictionary = {
   watchAdClosedEarly: "需完整观看广告才能获得点数。",
   watchAdUnavailable: "目前无法播放广告，请使用正式版 App。",
   watchAdDevTestHint: "开发版使用 Google 测试广告；正式上架后才会改用你的 AdMob 单元。",
+  dailyAdLimitStats: "今日已看 {count}/{limit} 则",
+  dailyAdLimitReached: "今日额度已用完",
+  dailyAdLimitHint: "每支手机每天最多 {limit} 则广告，隔日 0 点重置。",
+  alertDailyAdLimitTitle: "今日广告额度已满",
+  alertDailyAdLimitBody: "每支手机每天最多观看 {limit} 则广告，请明天再试。",
   properNoun: "专有名词",
   noDefinition: "查无释义",
   legalSectionTitle: "法律与隐私",
@@ -430,6 +445,11 @@ const en: Dictionary = {
   watchAdClosedEarly: "Watch the full ad to earn points.",
   watchAdUnavailable: "Ads are unavailable. Please use a production build.",
   watchAdDevTestHint: "Dev builds use Google test ads; your AdMob unit is used after store release.",
+  dailyAdLimitStats: "Today: {count}/{limit} ads",
+  dailyAdLimitReached: "Daily limit reached",
+  dailyAdLimitHint: "Up to {limit} ads per device per day; resets at midnight.",
+  alertDailyAdLimitTitle: "Daily ad limit reached",
+  alertDailyAdLimitBody: "You can watch up to {limit} ads per device per day. Try again tomorrow.",
   properNoun: "Proper noun",
   noDefinition: "No definition found",
   legalSectionTitle: "Legal & privacy",

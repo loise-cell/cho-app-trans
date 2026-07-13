@@ -7,7 +7,7 @@ export function formatServiceError(error: unknown, networkHint: string, fallback
   if (!message) {
     return fallback;
   }
-  if (/network request failed|failed to fetch|network error|timeout|timed out|service unavailable/i.test(message)) {
+  if (/network request failed|failed to fetch|network error|timed out|timeout expired/i.test(message)) {
     return networkHint;
   }
   return message;

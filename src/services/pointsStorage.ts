@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PointsState, initialPointsState } from "./pointsLedger";
+import { PointsState, getLocalDateString, initialPointsState, refreshDailyAdCount } from "./pointsLedger";
 
 const STORAGE_KEY = "choapptrans.points.v1";
 
@@ -16,7 +16,12 @@ function normalizePointsState(raw: Partial<PointsState> | null | undefined): Poi
     totalTranslations:
       typeof raw.totalTranslations === "number" && Number.isFinite(raw.totalTranslations)
         ? Math.max(0, Math.floor(raw.totalTranslations))
-        : 0
+        : 0,
+    adsWatchedToday:
+      typeof raw.adsWatchedToday === "number" && Number.isFinite(raw.adsWatchedToday)
+        ? Math.max(0, Math.floor(raw.adsWatchedToday))
+        : 0,
+    adsWatchDate: typeof raw.adsWatchDate === "string" && raw.adsWatchDate.trim() ? raw.adsWatchDate.trim() : getLocalDateString()
   };
 }
 
@@ -26,7 +31,13 @@ export async function loadPointsState(): Promise<PointsState> {
     if (!raw) {
       return { ...initialPointsState };
     }
-    return normalizePointsState(JSON.parse(raw) as Partial<PointsState>);
+    const normalized = normalizePointsState(JSON.parse(raw) as Partial<PointsState>);
+    const refreshed = refreshDailyAdCount(normalized);
+    if (refreshed.adsWatchedToday !== normalized.adsWatchedToday || refreshed.adsWatchDate !== normalized.adsWatchDate) {
+      await savePointsState(refreshed);
+      return refreshed;
+    }
+    return normalized;
   } catch {
     return { ...initialPointsState };
   }

@@ -1,4 +1,4 @@
-/** API base URL for Cloudflare Worker proxy. When set, OCR keys stay on the server. */
+/** API base URL for Cloudflare Worker proxy (optional; OCR/translate fall back to device if blocked). */
 export function getApiBaseUrl(): string | null {
   const raw = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
   if (!raw) {

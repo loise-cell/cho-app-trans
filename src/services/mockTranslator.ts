@@ -115,33 +115,27 @@ async function translateChunkDirect(
 ): Promise<string> {
   const from = SOURCE_TO_MYMEMORY[source] ?? "en";
   const to = TARGET_TO_MYMEMORY[target] ?? "en";
-  const url = `${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`${from}|${to}`)}`;
-  const response = await fetch(url);
+  const params = new URLSearchParams({
+    q: text,
+    langpair: `${from}|${to}`
+  });
+  const response = await fetch(`${TRANSLATE_ENDPOINT}?${params}`);
   if (!response.ok) {
     throw new Error("Translation service unavailable.");
   }
   const data = (await response.json()) as {
+    responseStatus?: number;
+    responseDetails?: string;
+    quotaFinished?: boolean;
     responseData?: { translatedText?: string };
   };
-  return data.responseData?.translatedText?.trim() || text;
-}
-
-async function translateChunkViaProxy(
-  text: string,
-  source: SourceLanguageCode,
-  target: TargetLanguageCode
-): Promise<string> {
-  const response = await fetch(apiUrl("/v1/translate"), {
-    method: "POST",
-    headers: apiRequestHeaders(),
-    body: JSON.stringify({ text, source, target })
-  });
-  if (!response.ok) {
-    const message = await response.text().catch(() => "");
-    throw new Error(message || "Translation service unavailable.");
+  if (data.quotaFinished) {
+    throw new Error("Translation quota exceeded for today. Try again tomorrow.");
   }
-  const data = (await response.json()) as { translatedText?: string };
-  return data.translatedText?.trim() || text;
+  if (data.responseStatus && data.responseStatus !== 200) {
+    throw new Error(data.responseDetails || "Translation failed.");
+  }
+  return data.responseData?.translatedText?.trim() || text;
 }
 
 async function translateChunk(
@@ -159,9 +153,7 @@ async function translateChunk(
     return text;
   }
 
-  if (useApiProxy()) {
-    return translateChunkViaProxy(text, source, target);
-  }
+  // MyMemory blocks Cloudflare datacenter IPs; OCR stays on Worker, translate from device.
   return translateChunkDirect(text, source, target);
 }
 
@@ -419,7 +411,9 @@ async function runOcrViaProxy(base64Image: string, sourceLanguage: SourceLanguag
   });
   if (!response.ok) {
     const message = await response.text().catch(() => "");
-    throw new Error(message || "OCR service unavailable.");
+    const error = new Error(message || "OCR service unavailable.");
+    (error as Error & { status?: number }).status = response.status;
+    throw error;
   }
   const data = (await response.json()) as { text?: string; error?: string };
   if (data.error) {
@@ -432,9 +426,32 @@ async function runOcrViaProxy(base64Image: string, sourceLanguage: SourceLanguag
   return parsedText;
 }
 
+function shouldFallbackOcrFromProxy(error: unknown): boolean {
+  const status = (error as Error & { status?: number }).status;
+  if (status === 401 || status === 429) {
+    return false;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    status === 502 ||
+    status === 503 ||
+    message.includes("OCR service unavailable") ||
+    message.includes("service unavailable") ||
+    message.includes("Failed to fetch") ||
+    message.includes("Network request failed")
+  );
+}
+
 async function runOcrWithBase64(base64Image: string, sourceLanguage: SourceLanguageCode): Promise<string> {
   if (useApiProxy()) {
-    return runOcrViaProxy(base64Image, sourceLanguage);
+    try {
+      return await runOcrViaProxy(base64Image, sourceLanguage);
+    } catch (error) {
+      if (!shouldFallbackOcrFromProxy(error)) {
+        throw error;
+      }
+      // OCR.space blocks Cloudflare egress IPs; retry from the device.
+    }
   }
   return runOcrDirect(base64Image, sourceLanguage);
 }

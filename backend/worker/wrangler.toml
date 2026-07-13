@@ -1,6 +1,8 @@
 name = "choapptrans-api"
 main = "src/index.ts"
 compatibility_date = "2026-07-01"
+account_id = "ec632e7d4c73715b05c0bb4919ca19fe"
+workers_dev = true
 
 [vars]
 RATE_LIMIT_PER_MINUTE = "30"

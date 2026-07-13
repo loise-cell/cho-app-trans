@@ -10,34 +10,35 @@ const TRANSLATE_ENDPOINT = "https://api.mymemory.translated.net/get";
 
 const SOURCE_TO_OCR: Record<string, string> = {
   auto: "cht",
+  eng: "eng",
   cht: "cht",
   chs: "chs",
-  en: "eng",
-  ja: "jpn",
-  ko: "kor",
-  es: "spa",
-  fr: "fre",
-  de: "ger",
-  pt: "por",
-  vi: "vie",
-  th: "tha",
-  id: "ind"
+  jpn: "jpn",
+  kor: "kor",
+  spa: "spa",
+  fre: "fre",
+  ger: "ger",
+  por: "por",
+  vie: "vie",
+  tha: "tha",
+  ind: "eng"
 };
 
+/** Kept for optional /v1/translate; MyMemory often blocks Cloudflare egress IPs. */
 const SOURCE_TO_MYMEMORY: Record<string, string> = {
   auto: "en",
+  eng: "en",
   cht: "zh-TW",
   chs: "zh-CN",
-  en: "en",
-  ja: "ja",
-  ko: "ko",
-  es: "es",
-  fr: "fr",
-  de: "de",
-  pt: "pt",
-  vi: "vi",
-  th: "th",
-  id: "id"
+  jpn: "ja",
+  kor: "ko",
+  spa: "es",
+  fre: "fr",
+  ger: "de",
+  por: "pt",
+  vie: "vi",
+  tha: "th",
+  ind: "id"
 };
 
 const TARGET_TO_MYMEMORY: Record<string, string> = { ...SOURCE_TO_MYMEMORY };
@@ -148,12 +149,28 @@ async function handleTranslate(
   const target = body.target || "zh-TW";
   const from = SOURCE_TO_MYMEMORY[source] ?? "en";
   const to = TARGET_TO_MYMEMORY[target] ?? "zh-TW";
-  const url = `${TRANSLATE_ENDPOINT}?q=${encodeURIComponent(text)}&langpair=${encodeURIComponent(`${from}|${to}`)}`;
-  const response = await fetch(url);
+  const params = new URLSearchParams({ q: text, langpair: `${from}|${to}` });
+  const response = await fetch(`${TRANSLATE_ENDPOINT}?${params}`, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "ChoAppTrans/1.0"
+    }
+  });
   if (!response.ok) {
-    return json({ error: "Translation service unavailable" }, 502);
+    const detail = await response.text().catch(() => "");
+    return json(
+      { error: "Translation service unavailable", upstreamStatus: response.status, detail: detail.slice(0, 200) },
+      502
+    );
   }
-  const data = (await response.json()) as { responseData?: { translatedText?: string } };
+  const data = (await response.json()) as {
+    responseStatus?: number;
+    responseDetails?: string;
+    responseData?: { translatedText?: string };
+  };
+  if (data.responseStatus && data.responseStatus !== 200) {
+    return json({ error: data.responseDetails || "Translation failed" }, 422);
+  }
   return json({ translatedText: data.responseData?.translatedText?.trim() || text });
 }
 

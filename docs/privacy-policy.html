@@ -15,7 +15,7 @@
       </nav>
       <div class="card">
         <h1>隱私權政策</h1>
-        <p class="updated">最後更新日期：2026-07-11</p>
+        <p class="updated">最後更新日期：2026-07-13</p>
 
         <p>
           Cho App Trans（以下稱「本 App」）由開發者營運。使用本 App 即表示您已閱讀並理解本政策。
@@ -34,12 +34,12 @@
             <tr>
               <td>相機／相簿圖片</td>
               <td>您主動拍攝或選取，用於 OCR 與翻譯</td>
-              <td>是（經由我們的 API 代理轉送至 OCR 服務）</td>
+              <td>是（翻譯時送至 OCR 服務；見下方說明）</td>
             </tr>
             <tr>
               <td>辨識與翻譯文字</td>
               <td>OCR 原文與翻譯結果</td>
-              <td>是（翻譯流程中）</td>
+              <td>是（翻譯流程中送至第三方服務）</td>
             </tr>
             <tr>
               <td>點數與徽章</td>
@@ -63,42 +63,51 @@
         <h2>2. 資料用途</h2>
         <ul>
           <li>提供圖片文字辨識（OCR）、翻譯與單字查詢</li>
-          <li>透過觀看獎勵廣告發放點數，並在翻譯時扣點</li>
-          <li>防止濫用（API 代理限流）</li>
+          <li>透過觀看獎勵廣告發放點數，並在翻譯時扣點（每支手機每天最多 15 則廣告，詳見《廣告與點數規範》）</li>
+          <li>改善服務穩定性（錯誤處理、防濫用）</li>
         </ul>
 
-        <h2>3. 後端代理與第三方服務</h2>
+        <h2>3. 資料如何傳送（第三方服務）</h2>
         <p>
-          為保護 API 金鑰與實施限流，OCR 與翻譯請求會先經由
-          <strong>Cloudflare Workers</strong>（我們的 API 代理）轉送，再交由下列第三方處理：
+          為提供翻譯功能，您的圖片與文字會由 <strong>App 直接連線</strong> 至下列第三方服務處理。
+          我們不會將您的內容用於訓練模型或再行銷，亦不長期保存您的圖片或翻譯內容。
         </p>
         <table>
           <thead>
             <tr>
               <th>服務</th>
               <th>用途</th>
+              <th>傳送方式</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>OCR.space</td>
               <td>圖片文字辨識</td>
+              <td>主要由 App 直連；必要時可能經 Cloudflare Worker 代理</td>
             </tr>
             <tr>
               <td>MyMemory (Translated.net)</td>
               <td>機器翻譯</td>
+              <td>App 直連</td>
             </tr>
             <tr>
               <td>dictionaryapi.dev</td>
-              <td>英文單字查詢（於 App 內查詢時）</td>
+              <td>英文單字查詢</td>
+              <td>App 直連</td>
             </tr>
             <tr>
               <td>Google AdMob</td>
               <td>獎勵式廣告</td>
+              <td>由 Google SDK 處理</td>
+            </tr>
+            <tr>
+              <td>Cloudflare Workers</td>
+              <td>OCR 備用代理與限流（可選）</td>
+              <td>僅在 OCR 直連不可用時可能使用</td>
             </tr>
           </tbody>
         </table>
-        <p>我們不會將您的內容用於訓練模型或再行銷。代理伺服器不長期保存您的圖片或翻譯內容。</p>
 
         <h2>4. 資料保存與刪除</h2>
         <ul>
